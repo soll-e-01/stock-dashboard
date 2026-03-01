@@ -338,7 +338,7 @@ if history:
         avg_vol = hdf["volume"].mean()
 
         sc1, sc2, sc3, sc4 = st.columns(4)
-        sc1.metric("기간 수익률", f"{period_pct:+.1f}%", delta=f"{period_change:+,.0f}원")
+        sc1.metric("기간 수익률", f"{period_pct:+.1f}%", delta=f"{period_change:+,.0f}원", delta_color="normal")
         sc2.metric("최고가", f"{high_max:,.0f}원")
         sc3.metric("최저가", f"{low_min:,.0f}원")
         sc4.metric("평균 거래량", f"{avg_vol:,.0f}")
@@ -359,7 +359,7 @@ with col_price:
         mktcap = int(round(int(price_row.get("market_cap", 0)) / 1_0000_0000))
 
         pc1, pc2 = st.columns(2)
-        pc1.metric("종가", f"{close:,}원", delta=f"{change:+,}원 ({pct_val:+.2f}%)")
+        pc1.metric("종가", f"{close:,}원", delta=f"{change:+,}원 ({pct_val:+.2f}%)", delta_color="normal")
         pc2.metric("시가총액", f"{mktcap:,}억")
     else:
         st.info("KRX 시세 데이터 없음")
@@ -916,7 +916,8 @@ if model.periods:
                 st.caption("단위: 억원")
             with col_prof_a:
                 prof_df_a = _build_prof_rows(fy_periods, _fy_col)
-                st.dataframe(prof_df_a, use_container_width=True, hide_index=True,
+                styled_prof_a = prof_df_a.style.apply(_style_margin_only, axis=1)
+                st.dataframe(styled_prof_a, use_container_width=True, hide_index=True,
                              height=min(len(prof_df_a) * 35 + 40, 300))
 
 # ── Recent Disclosures ──

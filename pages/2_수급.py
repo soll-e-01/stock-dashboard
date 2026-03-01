@@ -22,6 +22,21 @@ from dashboard_style import (
 st.set_page_config(page_title="수급", page_icon="◻", layout="wide")
 inject_css()
 
+
+def _style_signed_col(val):
+    """Apply red/blue color to signed numeric cells."""
+    if not val or val == "-":
+        return "color: #9CA3AF"
+    try:
+        num = float(val.replace("%", "").replace("+", "").replace(",", ""))
+        if num > 0:
+            return f"color: {COLOR_UP}; font-weight: 600"
+        elif num < 0:
+            return f"color: {COLOR_DOWN}; font-weight: 600"
+    except (ValueError, AttributeError):
+        pass
+    return "color: #9CA3AF"
+
 selected_date = st.session_state.get("selected_date")
 date_str = st.session_state.get("date_str")
 
@@ -174,4 +189,5 @@ for tab, inv_name in zip(tabs, investor_names):
             )
             display_df = display_df.reset_index(drop=True)
             display_df.index = display_df.index + 1
-            st.dataframe(display_df, use_container_width=True, height=500)
+            styled_df = display_df.style.map(_style_signed_col, subset=["순매수(억)", "비율(%)"])
+            st.dataframe(styled_df, use_container_width=True, height=500, hide_index=False)

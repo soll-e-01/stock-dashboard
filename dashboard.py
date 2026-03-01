@@ -12,7 +12,7 @@ import plotly.graph_objects as go
 
 from dashboard_data import load_market_overview, load_investor_trends
 from dashboard_style import (
-    inject_css, title_date_text, section_header, subsection_label, page_header,
+    inject_css, title_date_text, section_header, page_header,
     COLOR_UP, COLOR_DOWN, COLOR_FLAT, CHART_TEMPLATE,
 )
 
@@ -154,22 +154,61 @@ def _render_indicator_card(item: dict) -> str:
     """
 
 
-# ── Indices Section ──
-section_header("주요 지수")
+def _render_hero_card(item: dict) -> str:
+    """Render a large hero-style card for domestic indices (KOSPI/KOSDAQ)."""
+    name = item["name"]
+    val = item["value"]
+    change = item["change"]
+    pct = item["pct"]
+    prev_close = item.get("prev_close")
 
+    if pct > 0:
+        arrow = "▲"
+        border_color = COLOR_UP
+    elif pct < 0:
+        arrow = "▼"
+        border_color = COLOR_DOWN
+    else:
+        arrow = ""
+        border_color = "#D1D5DB"
+
+    cls = _color_class(pct)
+
+    prev_html = ""
+    if prev_close is not None:
+        prev_html = (
+            f'<div class="hero-index__prev">'
+            f'전일 {_fmt_value(name, prev_close)}'
+            f'</div>'
+        )
+
+    return f"""
+    <div class="hero-index" style="border-top-color:{border_color};">
+        <div class="hero-index__name">{name}</div>
+        <div class="hero-index__value">{_fmt_value(name, val)}</div>
+        <div class="hero-index__change {cls}">
+            {arrow} {_fmt_change(name, change, pct)}
+        </div>
+        {prev_html}
+    </div>
+    """
+
+
+# ── Domestic Indices (Hero) ──
 if indices:
     domestic = [i for i in indices if i["name"] in ("KOSPI", "KOSDAQ")]
     international = [i for i in indices if i["name"] not in ("KOSPI", "KOSDAQ")]
 
     if domestic:
-        subsection_label("국내")
-        dom_cols = st.columns(len(domestic))
-        for col, item in zip(dom_cols, domestic):
+        hero_cols = st.columns(len(domestic))
+        for col, item in zip(hero_cols, domestic):
             with col:
-                st.markdown(_render_indicator_card(item), unsafe_allow_html=True)
+                st.markdown(_render_hero_card(item), unsafe_allow_html=True)
+        st.markdown("")
 
+    # ── International Indices ──
+    section_header("해외 지수")
     if international:
-        subsection_label("해외")
         intl_cols = st.columns(len(international))
         for col, item in zip(intl_cols, international):
             with col:
@@ -181,19 +220,22 @@ else:
 section_header("매크로 지표")
 
 if macro:
-    MACRO_GROUPS = {
-        "환율": ["USD/KRW", "USD/JPY"],
-        "원자재": ["금(oz)", "WTI유"],
-        "시장 심리": ["비트코인", "VIX", "미국10Y"],
-    }
+    macro_order = ["USD/KRW", "USD/JPY", "금(oz)", "WTI유", "비트코인", "VIX", "미국10Y"]
+    macro_by_name = {m["name"]: m for m in macro}
+    ordered_macro = [macro_by_name[n] for n in macro_order if n in macro_by_name]
 
-    for group_label, group_names in MACRO_GROUPS.items():
-        group_items = [m for m in macro if m["name"] in group_names]
-        if not group_items:
-            continue
-        subsection_label(group_label)
-        cols = st.columns(len(group_items))
-        for col, item in zip(cols, group_items):
+    # Row 1: 4 items, Row 2: 3 items
+    row1 = ordered_macro[:4]
+    row2 = ordered_macro[4:]
+
+    if row1:
+        cols1 = st.columns(len(row1))
+        for col, item in zip(cols1, row1):
+            with col:
+                st.markdown(_render_indicator_card(item), unsafe_allow_html=True)
+    if row2:
+        cols2 = st.columns(len(row2))
+        for col, item in zip(cols2, row2):
             with col:
                 st.markdown(_render_indicator_card(item), unsafe_allow_html=True)
 else:

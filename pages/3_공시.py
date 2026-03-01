@@ -104,9 +104,9 @@ def _style_pct_col(val):
     try:
         num = float(val.replace("%", "").replace("+", ""))
         if num > 0:
-            return "color: #CC0000; font-weight: 600"
+            return f"color: {COLOR_UP}; font-weight: 600"
         elif num < 0:
-            return "color: #0066CC; font-weight: 600"
+            return f"color: {COLOR_DOWN}; font-weight: 600"
     except (ValueError, AttributeError):
         pass
     return "color: #9CA3AF"

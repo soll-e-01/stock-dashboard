@@ -316,6 +316,48 @@ div[data-testid="stAlert"] {
     font-size: 0.85rem;
     border-radius: 6px;
 }
+
+/* ── Hero Index Cards (KOSPI/KOSDAQ) ── */
+.hero-index {
+    background: #FFFFFF;
+    border-radius: 10px;
+    padding: 20px 24px 16px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    border-top: 4px solid #2F5496;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.hero-index:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+}
+.hero-index__name {
+    font-size: 0.78rem;
+    color: #6B7280;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.hero-index__value {
+    font-size: 1.65rem;
+    font-weight: 800;
+    color: #111827;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 4px;
+}
+.hero-index__change {
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 2px;
+}
+.hero-index__prev {
+    font-size: 0.68rem;
+    color: #9CA3AF;
+    margin-top: 4px;
+}
 </style>
 """
 
