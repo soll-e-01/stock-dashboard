@@ -10,7 +10,7 @@ import streamlit as st
 
 import plotly.graph_objects as go
 
-from dashboard_data import load_market_overview, load_investor_trends
+from dashboard_data import load_market_overview, load_investor_trends, load_index_detail
 from dashboard_style import (
     inject_css, title_date_text, section_header, page_header,
     COLOR_UP, COLOR_DOWN, COLOR_FLAT, CHART_TEMPLATE,
@@ -154,56 +154,163 @@ def _render_indicator_card(item: dict) -> str:
     """
 
 
-def _render_hero_card(item: dict) -> str:
-    """Render a large hero-style card for domestic indices (KOSPI/KOSDAQ)."""
+def _svg_sparkline(sparkline_data: list[dict], color: str, width: int = 300, height: int = 65) -> str:
+    """Generate an SVG sparkline area chart for embedding in HTML."""
+    if not sparkline_data or len(sparkline_data) < 2:
+        return ""
+
+    closes = [d["close"] for d in sparkline_data]
+    min_v = min(closes)
+    max_v = max(closes)
+    spread = max_v - min_v or 1
+
+    points = []
+    for i, v in enumerate(closes):
+        x = i / (len(closes) - 1) * width
+        y = height - (v - min_v) / spread * (height - 4) - 2  # 2px padding
+        points.append(f"{x:.1f},{y:.1f}")
+
+    polyline_str = " ".join(points)
+    area_str = f"0,{height} " + polyline_str + f" {width},{height}"
+
+    r = int(color[1:3], 16)
+    g = int(color[3:5], 16)
+    b = int(color[5:7], 16)
+
+    return (
+        f'<svg width="100%" viewBox="0 0 {width} {height}" preserveAspectRatio="none" '
+        f'style="display:block;padding:0 16px;">'
+        f'<polygon points="{area_str}" fill="rgba({r},{g},{b},0.08)" />'
+        f'<polyline points="{polyline_str}" fill="none" stroke="{color}" '
+        f'stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" />'
+        f'</svg>'
+    )
+
+
+def _render_pro_card(item: dict, detail: dict | None) -> str:
+    """Render a complete professional index card as a single HTML block."""
     name = item["name"]
     val = item["value"]
     change = item["change"]
     pct = item["pct"]
     prev_close = item.get("prev_close")
+    cls = _color_class(pct)
 
     if pct > 0:
-        arrow = "▲"
+        arrow = "&#x25B2;"
         border_color = COLOR_UP
     elif pct < 0:
-        arrow = "▼"
+        arrow = "&#x25BC;"
         border_color = COLOR_DOWN
     else:
         arrow = ""
         border_color = "#D1D5DB"
 
-    cls = _color_class(pct)
+    spark_color = COLOR_UP if pct >= 0 else COLOR_DOWN
 
-    prev_html = ""
-    if prev_close is not None:
-        prev_html = (
-            f'<div class="hero-index__prev">'
-            f'전일 {_fmt_value(name, prev_close)}'
+    # Header section
+    header_html = (
+        f'<div class="pro-index__header">'
+        f'<div class="pro-index__info">'
+        f'<div class="pro-index__name">{name}</div>'
+        f'<div class="pro-index__value">{_fmt_value(name, val)}</div>'
+        f'<div class="pro-index__change {cls}">'
+        f'{arrow} {_fmt_change(name, change, pct)}'
+        f'</div>'
+        f'</div>'
+        f'</div>'
+    )
+
+    # SVG sparkline
+    sparkline_html = ""
+    if detail and detail.get("sparkline"):
+        sparkline_html = _svg_sparkline(detail["sparkline"], spark_color)
+
+    # Stats grid
+    def _stat(label: str, value: str) -> str:
+        return (
+            f'<div class="pro-index__stat">'
+            f'<div class="pro-index__stat-label">{label}</div>'
+            f'<div class="pro-index__stat-value">{value}</div>'
             f'</div>'
         )
 
-    return f"""
-    <div class="hero-index" style="border-top-color:{border_color};">
-        <div class="hero-index__name">{name}</div>
-        <div class="hero-index__value">{_fmt_value(name, val)}</div>
-        <div class="hero-index__change {cls}">
-            {arrow} {_fmt_change(name, change, pct)}
-        </div>
-        {prev_html}
-    </div>
-    """
+    if detail:
+        open_v = f"{detail['open']:,.2f}"
+        high_v = f"{detail['high']:,.2f}"
+        low_v = f"{detail['low']:,.2f}"
+        vol = detail["volume"]
+        if vol >= 1_0000_0000:
+            vol_str = f"{vol / 1_0000_0000:.1f}억"
+        elif vol >= 1_0000:
+            vol_str = f"{vol / 1_0000:.0f}만"
+        else:
+            vol_str = f"{vol:,}"
+    else:
+        open_v = high_v = low_v = vol_str = "-"
+
+    prev_str = f"{prev_close:,.2f}" if prev_close is not None else "-"
+
+    stats_html = (
+        f'<div class="pro-index__stats">'
+        + _stat("시가", open_v)
+        + _stat("고가", high_v)
+        + _stat("저가", low_v)
+        + _stat("거래량", vol_str)
+        + _stat("전일종가", prev_str)
+        + '</div>'
+    )
+
+    # 52-week range bar
+    range_html = ""
+    if detail:
+        w52_high = detail["week52_high"]
+        w52_low = detail["week52_low"]
+        spread = w52_high - w52_low
+
+        if spread <= 0:
+            pct_pos = 50.0
+        else:
+            pct_pos = max(0, min(100, (val - w52_low) / spread * 100))
+
+        fill_color = COLOR_UP if pct_pos >= 50 else COLOR_DOWN
+
+        range_html = (
+            f'<div class="pro-index__range">'
+            f'<div class="pro-index__range-labels">'
+            f'<span>52주 최저 {w52_low:,.2f}</span>'
+            f'<span>52주 최고 {w52_high:,.2f}</span>'
+            f'</div>'
+            f'<div class="pro-index__range-track">'
+            f'<div class="pro-index__range-fill" style="width:{pct_pos:.1f}%;background:{fill_color};"></div>'
+            f'<div class="pro-index__range-dot" style="left:{pct_pos:.1f}%;background:{fill_color};"></div>'
+            f'</div>'
+            f'</div>'
+        )
+
+    return (
+        f'<div class="pro-index" style="border-top-color:{border_color};">'
+        + header_html
+        + sparkline_html
+        + stats_html
+        + range_html
+        + '</div>'
+    )
 
 
-# ── Domestic Indices (Hero) ──
+# ── Domestic Indices (Professional Cards) ──
 if indices:
     domestic = [i for i in indices if i["name"] in ("KOSPI", "KOSDAQ")]
     international = [i for i in indices if i["name"] not in ("KOSPI", "KOSDAQ")]
 
     if domestic:
+        index_detail = load_index_detail()
         hero_cols = st.columns(len(domestic))
         for col, item in zip(hero_cols, domestic):
             with col:
-                st.markdown(_render_hero_card(item), unsafe_allow_html=True)
+                detail = index_detail.get(item["name"])
+                card_html = _render_pro_card(item, detail)
+                st.markdown(card_html, unsafe_allow_html=True)
         st.markdown("")
 
     # ── International Indices ──

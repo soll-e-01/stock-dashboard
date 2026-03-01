@@ -1766,3 +1766,68 @@ def load_market_overview() -> dict[str, Any]:
         result[cat] = [d for _, d in fetched[cat]]
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Index Detail (KOSPI/KOSDAQ sparkline + OHLCV + 52-week range)
+# ---------------------------------------------------------------------------
+
+@st.cache_data(ttl=600, show_spinner=False)
+def load_index_detail() -> dict[str, dict[str, Any]]:
+    """Fetch extended data for KOSPI/KOSDAQ: OHLCV, 1-month sparkline, 52-week range."""
+    import yfinance as yf
+    from concurrent.futures import ThreadPoolExecutor
+
+    SYMBOLS = {"KOSPI": "^KS11", "KOSDAQ": "^KQ11"}
+
+    def _fetch_detail(name: str, symbol: str) -> tuple[str, dict[str, Any] | None]:
+        try:
+            ticker = yf.Ticker(symbol)
+
+            # 1-month daily for sparkline
+            hist_1mo = ticker.history(period="1mo")
+            if hist_1mo.empty:
+                return name, None
+
+            latest = hist_1mo.iloc[-1]
+
+            sparkline = [
+                {"date": str(row.Index.date()), "close": round(float(row.Close), 2)}
+                for row in hist_1mo.itertuples()
+                if row.Close == row.Close  # skip NaN
+            ]
+
+            # 1-year for 52-week range
+            hist_1y = ticker.history(period="1y")
+            if hist_1y.empty:
+                week52_high = float(latest["High"])
+                week52_low = float(latest["Low"])
+            else:
+                week52_high = float(hist_1y["High"].max())
+                week52_low = float(hist_1y["Low"].min())
+
+            return name, {
+                "open": round(float(latest["Open"]), 2),
+                "high": round(float(latest["High"]), 2),
+                "low": round(float(latest["Low"]), 2),
+                "volume": int(latest["Volume"]),
+                "week52_high": round(week52_high, 2),
+                "week52_low": round(week52_low, 2),
+                "sparkline": sparkline,
+            }
+        except Exception:
+            return name, None
+
+    result: dict[str, dict[str, Any]] = {}
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(_fetch_detail, name, symbol)
+            for name, symbol in SYMBOLS.items()
+        ]
+        for future in futures:
+            name, data = future.result()
+            if data:
+                result[name] = data
+
+    return result
