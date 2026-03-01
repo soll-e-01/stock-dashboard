@@ -55,34 +55,11 @@ if not supply:
     st.warning("수급 데이터를 불러올 수 없습니다. 해당 일자의 데이터가 없거나 KRX 접속이 불가합니다.")
     st.stop()
 
-# ---------------------------------------------------------------------------
-# KPI Cards — total net buy per investor type
-# ---------------------------------------------------------------------------
 investor_names = list(supply.keys())
-cols = st.columns(len(investor_names))
-
-for col, inv_name in zip(cols, investor_names):
-    rows = supply[inv_name]
-    total = sum(r.get("net_buy", 0) for r in rows)
-    total_eok = int(round(total / 1_0000_0000))
-    delta_color = "normal"
-    col.metric(
-        inv_name,
-        f"{total_eok:,}억",
-        delta=f"{'순매수' if total >= 0 else '순매도'}",
-        delta_color="normal" if total >= 0 else "inverse",
-    )
-
-st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# Investor Trading Trends (투자자별 매매동향)
+# Helper functions
 # ---------------------------------------------------------------------------
-
-trends = load_investor_trends(date_str)
-trend_overview = trends.get("overview", {})
-trend_detail = trends.get("detail", {})
-
 
 def _trend_bar_chart(
     names: list[str], values: list[int], title: str, height: int = 260,
@@ -91,7 +68,6 @@ def _trend_bar_chart(
     values_eok = [int(round(v / 1_0000_0000)) for v in values]
     colors = [COLOR_UP if v > 0 else COLOR_DOWN if v < 0 else COLOR_FLAT for v in values_eok]
 
-    # Dynamic text positioning
     max_abs = max(abs(v) for v in values_eok) if values_eok else 1
     text_pos = [
         "inside" if abs(v) > max_abs * 0.3 else "outside"
@@ -187,67 +163,6 @@ def _trend_summary_table(overview: dict[str, dict[str, int]]) -> str:
     )
 
 
-# ── 투자자별 매매동향 ──
-if trend_overview:
-    section_header("투자자별 매매동향")
-
-    inv_order = ["외국인", "기관", "개인"]
-    col_kospi, col_kosdaq = st.columns(2)
-
-    with col_kospi:
-        kospi_data = trend_overview.get("KOSPI", {})
-        names = [n for n in inv_order if n in kospi_data]
-        vals = [kospi_data[n] for n in names]
-        if names:
-            fig = _trend_bar_chart(names, vals, "KOSPI", height=230)
-            st.plotly_chart(fig, use_container_width=True)
-
-    with col_kosdaq:
-        kosdaq_data = trend_overview.get("KOSDAQ", {})
-        names = [n for n in inv_order if n in kosdaq_data]
-        vals = [kosdaq_data[n] for n in names]
-        if names:
-            fig = _trend_bar_chart(names, vals, "KOSDAQ", height=230)
-            st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown(_trend_summary_table(trend_overview), unsafe_allow_html=True)
-
-# ── 기관 세부 순매수 ──
-if trend_detail:
-    section_header("기관 세부 순매수")
-
-    detail_order = ["연기금", "투자신탁", "사모펀드"]
-    col_kospi2, col_kosdaq2 = st.columns(2)
-
-    with col_kospi2:
-        kospi_detail = trend_detail.get("KOSPI", {})
-        names = [n for n in detail_order if n in kospi_detail]
-        vals = [kospi_detail[n] for n in names]
-        if names:
-            fig = _trend_bar_chart(names, vals, "KOSPI 기관 세부", height=230)
-            st.plotly_chart(fig, use_container_width=True)
-
-    with col_kosdaq2:
-        kosdaq_detail = trend_detail.get("KOSDAQ", {})
-        names = [n for n in detail_order if n in kosdaq_detail]
-        vals = [kosdaq_detail[n] for n in names]
-        if names:
-            fig = _trend_bar_chart(names, vals, "KOSDAQ 기관 세부", height=230)
-            st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown(
-        '<p class="source-text">KRX 기준 (당일 순매수 합계)</p>',
-        unsafe_allow_html=True,
-    )
-
-st.markdown("---")
-
-# ---------------------------------------------------------------------------
-# 종목별 수급 상세 (탭별 투자자 유형)
-# ---------------------------------------------------------------------------
-section_header("종목별 수급 상세")
-
-
 def _supply_bar_chart(names: list, values: list, title: str) -> go.Figure:
     colors = [COLOR_UP if v > 0 else COLOR_DOWN if v < 0 else COLOR_FLAT for v in values]
     fig = go.Figure(go.Bar(
@@ -273,9 +188,88 @@ def _supply_bar_chart(names: list, values: list, title: str) -> go.Figure:
     return fig
 
 
-tabs = st.tabs(investor_names)
+# ---------------------------------------------------------------------------
+# Tabs: 수급 개요 + 투자자별 상세
+# ---------------------------------------------------------------------------
+trends = load_investor_trends(date_str)
+trend_overview = trends.get("overview", {})
+trend_detail = trends.get("detail", {})
 
-for tab, inv_name in zip(tabs, investor_names):
+tab_names = ["수급 개요"] + investor_names
+all_tabs = st.tabs(tab_names)
+
+# ── 수급 개요 탭 ──
+with all_tabs[0]:
+    # KPI Cards
+    cols = st.columns(len(investor_names))
+    for col, inv_name in zip(cols, investor_names):
+        rows = supply[inv_name]
+        total = sum(r.get("net_buy", 0) for r in rows)
+        total_eok = int(round(total / 1_0000_0000))
+        col.metric(
+            inv_name,
+            f"{total_eok:,}억",
+            delta=f"{'순매수' if total >= 0 else '순매도'}",
+            delta_color="normal" if total >= 0 else "inverse",
+        )
+
+    st.markdown("---")
+
+    # 투자자별 매매동향
+    if trend_overview:
+        section_header("투자자별 매매동향")
+
+        inv_order = ["외국인", "기관", "개인"]
+        col_kospi, col_kosdaq = st.columns(2)
+
+        with col_kospi:
+            kospi_data = trend_overview.get("KOSPI", {})
+            names = [n for n in inv_order if n in kospi_data]
+            vals = [kospi_data[n] for n in names]
+            if names:
+                fig = _trend_bar_chart(names, vals, "KOSPI", height=230)
+                st.plotly_chart(fig, use_container_width=True)
+
+        with col_kosdaq:
+            kosdaq_data = trend_overview.get("KOSDAQ", {})
+            names = [n for n in inv_order if n in kosdaq_data]
+            vals = [kosdaq_data[n] for n in names]
+            if names:
+                fig = _trend_bar_chart(names, vals, "KOSDAQ", height=230)
+                st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown(_trend_summary_table(trend_overview), unsafe_allow_html=True)
+
+    # 기관 세부 순매수
+    if trend_detail:
+        section_header("기관 세부 순매수")
+
+        detail_order = ["연기금", "투자신탁", "사모펀드"]
+        col_kospi2, col_kosdaq2 = st.columns(2)
+
+        with col_kospi2:
+            kospi_detail = trend_detail.get("KOSPI", {})
+            names = [n for n in detail_order if n in kospi_detail]
+            vals = [kospi_detail[n] for n in names]
+            if names:
+                fig = _trend_bar_chart(names, vals, "KOSPI 기관 세부", height=230)
+                st.plotly_chart(fig, use_container_width=True)
+
+        with col_kosdaq2:
+            kosdaq_detail = trend_detail.get("KOSDAQ", {})
+            names = [n for n in detail_order if n in kosdaq_detail]
+            vals = [kosdaq_detail[n] for n in names]
+            if names:
+                fig = _trend_bar_chart(names, vals, "KOSDAQ 기관 세부", height=230)
+                st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown(
+            '<p class="source-text">KRX 기준 (당일 순매수 합계)</p>',
+            unsafe_allow_html=True,
+        )
+
+# ── 투자자 유형별 탭 (사모펀드, 투자신탁, 연기금, 외국인, 개인) ──
+for tab, inv_name in zip(all_tabs[1:], investor_names):
     with tab:
         rows = supply[inv_name]
         if not rows:
@@ -283,11 +277,8 @@ for tab, inv_name in zip(tabs, investor_names):
             continue
 
         df = pd.DataFrame(rows)
-
-        # Net buy in 억원
         df["net_buy_eok"] = (df["net_buy"] / 1_0000_0000).round(0).astype(int)
 
-        # Top 10 by absolute net buy and by market cap ratio
         top_buy = df.nlargest(10, "net_buy")
         top_sell = df.nsmallest(10, "net_buy")
 
