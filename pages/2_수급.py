@@ -91,16 +91,16 @@ def _trend_bar_chart(
         text=[f"{v:+,}억" for v in values_eok[::-1]],
         textposition=text_pos[::-1],
         cliponaxis=False,
-        textfont=dict(size=10, color=text_colors[::-1]),
+        textfont=dict(size=9, color=text_colors[::-1]),
     ))
 
     fig.update_layout(
         height=height,
-        margin=dict(l=10, r=60, t=36, b=6),
+        margin=dict(l=10, r=50, t=30, b=4),
         template=CHART_TEMPLATE,
         title=dict(
             text=f"<b>{title}</b>",
-            font=dict(size=13, color="#1F3864"),
+            font=dict(size=12, color="#1F3864"),
             x=0.01,
             y=0.95,
         ),
@@ -116,9 +116,9 @@ def _trend_bar_chart(
         yaxis=dict(
             showgrid=False,
             automargin=True,
-            tickfont=dict(size=11, color="#374151"),
+            tickfont=dict(size=10, color="#374151"),
         ),
-        bargap=0.25,
+        bargap=0.20,
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
     )
@@ -173,16 +173,16 @@ def _supply_bar_chart(names: list, values: list, title: str) -> go.Figure:
         text=[f"{v:+,.0f}" for v in values[::-1]],
         textposition="outside",
         cliponaxis=False,
-        textfont=dict(size=10),
+        textfont=dict(size=9),
     ))
     fig.update_layout(
-        height=max(380, len(names) * 38),
-        margin=dict(l=10, r=80, t=32, b=6),
+        height=max(360, len(names) * 36),
+        margin=dict(l=10, r=70, t=28, b=4),
         template=CHART_TEMPLATE,
-        title=dict(text=title, font=dict(size=12, color="#1F3864"), x=0.01),
+        title=dict(text=title, font=dict(size=11, color="#1F3864"), x=0.01),
         xaxis=dict(showgrid=True, gridcolor="#F0F0F0", side="top", tickformat=","),
-        yaxis=dict(showgrid=False, automargin=True, tickfont=dict(size=10)),
-        bargap=0.3,
+        yaxis=dict(showgrid=False, automargin=True, tickfont=dict(size=9)),
+        bargap=0.25,
         plot_bgcolor="#FAFBFC",
     )
     return fig
@@ -195,26 +195,28 @@ trends = load_investor_trends(date_str)
 trend_overview = trends.get("overview", {})
 trend_detail = trends.get("detail", {})
 
+# ---------------------------------------------------------------------------
+# KPI Cards (탭 밖)
+# ---------------------------------------------------------------------------
+cols = st.columns(len(investor_names))
+for col, inv_name in zip(cols, investor_names):
+    rows = supply[inv_name]
+    total = sum(r.get("net_buy", 0) for r in rows)
+    total_eok = int(round(total / 1_0000_0000))
+    col.metric(
+        inv_name,
+        f"{total_eok:,}억",
+        delta=f"{'순매수' if total >= 0 else '순매도'}",
+        delta_color="normal" if total >= 0 else "inverse",
+    )
+
+st.markdown("---")
+
 tab_names = ["수급 개요"] + investor_names
 all_tabs = st.tabs(tab_names)
 
 # ── 수급 개요 탭 ──
 with all_tabs[0]:
-    # KPI Cards
-    cols = st.columns(len(investor_names))
-    for col, inv_name in zip(cols, investor_names):
-        rows = supply[inv_name]
-        total = sum(r.get("net_buy", 0) for r in rows)
-        total_eok = int(round(total / 1_0000_0000))
-        col.metric(
-            inv_name,
-            f"{total_eok:,}억",
-            delta=f"{'순매수' if total >= 0 else '순매도'}",
-            delta_color="normal" if total >= 0 else "inverse",
-        )
-
-    st.markdown("---")
-
     # 투자자별 매매동향
     if trend_overview:
         section_header("투자자별 매매동향")
@@ -317,20 +319,20 @@ for tab, inv_name in zip(all_tabs[1:], investor_names):
                     text=[f"{v:+.3f}%" for v in ratio_vals[::-1]],
                     textposition="outside",
                     cliponaxis=False,
-                    textfont=dict(size=10),
+                    textfont=dict(size=9),
                 ))
                 fig.update_layout(
-                    height=max(380, len(ratio_names) * 38),
-                    margin=dict(l=10, r=80, t=32, b=6),
+                    height=max(360, len(ratio_names) * 36),
+                    margin=dict(l=10, r=70, t=28, b=4),
                     template=CHART_TEMPLATE,
                     title=dict(
                         text="시총대비 순매수 비율 Top 10 (%)",
-                        font=dict(size=12, color="#1F3864"),
+                        font=dict(size=11, color="#1F3864"),
                         x=0.01,
                     ),
                     xaxis=dict(showgrid=True, gridcolor="#F0F0F0", side="top"),
-                    yaxis=dict(showgrid=False, automargin=True, tickfont=dict(size=10)),
-                    bargap=0.3,
+                    yaxis=dict(showgrid=False, automargin=True, tickfont=dict(size=9)),
+                    bargap=0.25,
                     plot_bgcolor="#FAFBFC",
                 )
                 st.plotly_chart(fig, use_container_width=True)
