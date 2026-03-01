@@ -261,25 +261,25 @@ def _render_pro_card(item: dict, detail: dict | None) -> str:
         + '</div>'
     )
 
-    # 52-week range bar
+    # Daily range bar (당일 저가~고가)
     range_html = ""
     if detail:
-        w52_high = detail["week52_high"]
-        w52_low = detail["week52_low"]
-        spread = w52_high - w52_low
+        day_high = detail["high"]
+        day_low = detail["low"]
+        spread = day_high - day_low
 
         if spread <= 0:
             pct_pos = 50.0
         else:
-            pct_pos = max(0, min(100, (val - w52_low) / spread * 100))
+            pct_pos = max(0, min(100, (val - day_low) / spread * 100))
 
-        fill_color = COLOR_UP if pct_pos >= 50 else COLOR_DOWN
+        fill_color = COLOR_UP if pct >= 0 else COLOR_DOWN
 
         range_html = (
             f'<div class="pro-index__range">'
             f'<div class="pro-index__range-labels">'
-            f'<span>52주 최저 {w52_low:,.2f}</span>'
-            f'<span>52주 최고 {w52_high:,.2f}</span>'
+            f'<span>저가 {day_low:,.2f}</span>'
+            f'<span>고가 {day_high:,.2f}</span>'
             f'</div>'
             f'<div class="pro-index__range-track">'
             f'<div class="pro-index__range-fill" style="width:{pct_pos:.1f}%;background:{fill_color};"></div>'
