@@ -115,7 +115,7 @@ for tab, inv_name in zip(tabs, investor_names):
                 top_buy["net_buy_eok"].tolist(),
                 f"{inv_name} 순매수 Top 10 (억원)",
             )
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
         with col_sell:
             fig = _supply_bar_chart(
@@ -123,7 +123,7 @@ for tab, inv_name in zip(tabs, investor_names):
                 top_sell["net_buy_eok"].tolist(),
                 f"{inv_name} 순매도 Top 10 (억원)",
             )
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
         # Market cap ratio top 10
         if "ratio" in df.columns:
@@ -158,7 +158,7 @@ for tab, inv_name in zip(tabs, investor_names):
                     bargap=0.3,
                     plot_bgcolor="#FAFBFC",
                 )
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, use_container_width=True)
 
         # Full data table
         st.markdown("")
@@ -174,4 +174,4 @@ for tab, inv_name in zip(tabs, investor_names):
             )
             display_df = display_df.reset_index(drop=True)
             display_df.index = display_df.index + 1
-            st.dataframe(display_df, width="stretch", height=500)
+            st.dataframe(display_df, use_container_width=True, height=500)

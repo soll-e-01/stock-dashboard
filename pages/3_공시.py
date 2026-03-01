@@ -149,7 +149,7 @@ if watchlist_rows:
         wl_df.index = wl_df.index + 1
         st.dataframe(
             wl_df,
-            width="stretch",
+            use_container_width=True,
             column_config={
                 "DART 링크": st.column_config.LinkColumn("DART 링크", display_text="보기"),
             },
@@ -211,7 +211,7 @@ for tab, sheet_name in zip(sheet_tabs, by_sheet.keys() if by_sheet else []):
         styled_tdf = tdf.style.map(_style_pct_col, subset=["등락률"])
         st.dataframe(
             styled_tdf,
-            width="stretch",
+            use_container_width=True,
             height=min(len(tdf) * 35 + 40, 600),
             column_config={
                 "DART 링크": st.column_config.LinkColumn("DART 링크", display_text="보기"),

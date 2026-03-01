@@ -330,7 +330,7 @@ if trend_overview:
         vals = [kospi_data[n] for n in names]
         if names:
             fig = _trend_bar_chart(names, vals, "KOSPI", height=230)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
     with col_kosdaq:
         kosdaq_data = trend_overview.get("KOSDAQ", {})
@@ -338,7 +338,7 @@ if trend_overview:
         vals = [kosdaq_data[n] for n in names]
         if names:
             fig = _trend_bar_chart(names, vals, "KOSDAQ", height=230)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
     st.markdown(_trend_summary_table(trend_overview), unsafe_allow_html=True)
 
@@ -355,7 +355,7 @@ if trend_detail:
         vals = [kospi_detail[n] for n in names]
         if names:
             fig = _trend_bar_chart(names, vals, "KOSPI 기관 세부", height=230)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
     with col_kosdaq2:
         kosdaq_detail = trend_detail.get("KOSDAQ", {})
@@ -363,7 +363,7 @@ if trend_detail:
         vals = [kosdaq_detail[n] for n in names]
         if names:
             fig = _trend_bar_chart(names, vals, "KOSDAQ 기관 세부", height=230)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
     st.markdown(
         '<p class="source-text">KRX 기준 (당일 순매수 합계)</p>',
