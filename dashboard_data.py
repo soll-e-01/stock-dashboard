@@ -95,26 +95,25 @@ def _apply_secrets(cfg: dict[str, Any]) -> dict[str, Any]:
     """Override config values with st.secrets when available (for cloud deploy)."""
     try:
         secrets = st.secrets
+        # DART API key
+        if "dart" in secrets:
+            dart_sec = secrets["dart"]
+            if "api_key" in dart_sec:
+                cfg.setdefault("dart", {})
+                if not cfg["dart"].get("api_key"):
+                    cfg["dart"]["api_key"] = dart_sec["api_key"]
+
+        # KRX login credentials
+        if "krx" in secrets:
+            krx_sec = secrets["krx"]
+            cfg.setdefault("krx", {})
+            cfg["krx"].setdefault("login", {})
+            if "mbrId" in krx_sec and not cfg["krx"]["login"].get("mbrId"):
+                cfg["krx"]["login"]["mbrId"] = krx_sec["mbrId"]
+            if "pw" in krx_sec and not cfg["krx"]["login"].get("pw"):
+                cfg["krx"]["login"]["pw"] = krx_sec["pw"]
     except Exception:
-        return cfg
-
-    # DART API key
-    if "dart" in secrets:
-        dart_sec = secrets["dart"]
-        if "api_key" in dart_sec:
-            cfg.setdefault("dart", {})
-            if not cfg["dart"].get("api_key"):
-                cfg["dart"]["api_key"] = dart_sec["api_key"]
-
-    # KRX login credentials
-    if "krx" in secrets:
-        krx_sec = secrets["krx"]
-        cfg.setdefault("krx", {})
-        cfg["krx"].setdefault("login", {})
-        if "mbrId" in krx_sec and not cfg["krx"]["login"].get("mbrId"):
-            cfg["krx"]["login"]["mbrId"] = krx_sec["mbrId"]
-        if "pw" in krx_sec and not cfg["krx"]["login"].get("pw"):
-            cfg["krx"]["login"]["pw"] = krx_sec["pw"]
+        pass
 
     return cfg
 
