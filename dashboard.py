@@ -152,34 +152,67 @@ def _render_indicator_card(item: dict) -> str:
     """
 
 
-def _svg_sparkline(sparkline_data: list[dict], color: str, width: int = 300, height: int = 65) -> str:
-    """Generate an SVG sparkline area chart for embedding in HTML."""
+def _svg_sparkline(
+    sparkline_data: list[dict],
+    prev_close: float | None = None,
+    uid: str = "sp",
+    width: int = 300,
+    height: int = 65,
+) -> str:
+    """Generate an SVG sparkline with two-tone fill above/below prev_close baseline."""
     if not sparkline_data or len(sparkline_data) < 2:
         return ""
 
     closes = [d["close"] for d in sparkline_data]
     min_v = min(closes)
     max_v = max(closes)
+
+    if prev_close is not None:
+        min_v = min(min_v, prev_close)
+        max_v = max(max_v, prev_close)
+
     spread = max_v - min_v or 1
+    pad = 2
 
     points = []
     for i, v in enumerate(closes):
         x = i / (len(closes) - 1) * width
-        y = height - (v - min_v) / spread * (height - 4) - 2  # 2px padding
+        y = height - (v - min_v) / spread * (height - 2 * pad) - pad
         points.append(f"{x:.1f},{y:.1f}")
 
     polyline_str = " ".join(points)
+
+    if prev_close is not None:
+        bl_y = height - (prev_close - min_v) / spread * (height - 2 * pad) - pad
+        area_str = f"0,{bl_y:.1f} " + polyline_str + f" {width},{bl_y:.1f}"
+
+        return (
+            f'<svg width="100%" viewBox="0 0 {width} {height}" preserveAspectRatio="none" '
+            f'style="display:block;padding:0 16px;">'
+            f'<defs>'
+            f'<clipPath id="ca-{uid}"><rect x="0" y="0" width="{width}" height="{bl_y:.1f}"/></clipPath>'
+            f'<clipPath id="cb-{uid}"><rect x="0" y="{bl_y:.1f}" width="{width}" height="{height}"/></clipPath>'
+            f'</defs>'
+            f'<polygon points="{area_str}" fill="rgba(204,0,0,0.12)" clip-path="url(#ca-{uid})"/>'
+            f'<polygon points="{area_str}" fill="rgba(0,102,204,0.12)" clip-path="url(#cb-{uid})"/>'
+            f'<line x1="0" y1="{bl_y:.1f}" x2="{width}" y2="{bl_y:.1f}" '
+            f'stroke="#D1D5DB" stroke-width="0.5" stroke-dasharray="3,2"/>'
+            f'<polyline points="{polyline_str}" fill="none" stroke="{COLOR_UP}" '
+            f'stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" '
+            f'clip-path="url(#ca-{uid})"/>'
+            f'<polyline points="{polyline_str}" fill="none" stroke="{COLOR_DOWN}" '
+            f'stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" '
+            f'clip-path="url(#cb-{uid})"/>'
+            f'</svg>'
+        )
+
+    # Fallback: single-color sparkline (no prev_close)
     area_str = f"0,{height} " + polyline_str + f" {width},{height}"
-
-    r = int(color[1:3], 16)
-    g = int(color[3:5], 16)
-    b = int(color[5:7], 16)
-
     return (
         f'<svg width="100%" viewBox="0 0 {width} {height}" preserveAspectRatio="none" '
         f'style="display:block;padding:0 16px;">'
-        f'<polygon points="{area_str}" fill="rgba({r},{g},{b},0.08)" />'
-        f'<polyline points="{polyline_str}" fill="none" stroke="{color}" '
+        f'<polygon points="{area_str}" fill="rgba(47,84,150,0.08)" />'
+        f'<polyline points="{polyline_str}" fill="none" stroke="#2F5496" '
         f'stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" />'
         f'</svg>'
     )
@@ -216,36 +249,21 @@ def _render_pro_card(item: dict, detail: dict | None) -> str:
     if pct > 0:
         arrow = "&#x25B2;"
         border_color = COLOR_UP
-        badge_text = "&#x25B2; 양전"
-        badge_bg = "rgba(204,0,0,0.08)"
-        badge_color = COLOR_UP
         value_color = COLOR_UP
     elif pct < 0:
         arrow = "&#x25BC;"
         border_color = COLOR_DOWN
-        badge_text = "&#x25BC; 음전"
-        badge_bg = "rgba(0,102,204,0.08)"
-        badge_color = COLOR_DOWN
         value_color = COLOR_DOWN
     else:
         arrow = ""
         border_color = "#D1D5DB"
-        badge_text = "보합"
-        badge_bg = "rgba(136,136,136,0.08)"
-        badge_color = COLOR_FLAT
         value_color = "#111827"
 
-    spark_color = COLOR_UP if pct >= 0 else COLOR_DOWN
-
-    # Header: name + badge row, colored value, change
+    # Header: name, colored value, change
     header_html = (
         f'<div class="pro-index__header">'
         f'<div class="pro-index__info">'
-        f'<div class="pro-index__name-row">'
-        f'<span class="pro-index__name">{name}</span>'
-        f'<span class="pro-index__badge" style="background:{badge_bg};color:{badge_color};">'
-        f'{badge_text}</span>'
-        f'</div>'
+        f'<div class="pro-index__name">{name}</div>'
         f'<div class="pro-index__value" style="color:{value_color};">'
         f'{_fmt_value(name, val)}</div>'
         f'<div class="pro-index__change {cls}">'
@@ -258,10 +276,11 @@ def _render_pro_card(item: dict, detail: dict | None) -> str:
     # SVG sparkline (prefer intraday, fallback to monthly)
     sparkline_html = ""
     intraday = detail.get("sparkline_intraday", []) if detail else []
+    card_uid = name.lower().replace(" ", "").replace("&", "")
     if intraday and len(intraday) >= 2:
-        sparkline_html = _svg_sparkline(intraday, spark_color) + _time_labels_html()
+        sparkline_html = _svg_sparkline(intraday, prev_close=prev_close, uid=card_uid) + _time_labels_html()
     elif detail and detail.get("sparkline"):
-        sparkline_html = _svg_sparkline(detail["sparkline"], spark_color)
+        sparkline_html = _svg_sparkline(detail["sparkline"], prev_close=prev_close, uid=card_uid)
 
     # Range bars (당일 + 52주)
     fill_color = COLOR_UP if pct >= 0 else COLOR_DOWN

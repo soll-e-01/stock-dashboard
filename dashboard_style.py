@@ -340,25 +340,13 @@ div[data-testid="stAlert"] {
     flex: 1;
     min-width: 0;
 }
-.pro-index__name-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 6px;
-}
 .pro-index__name {
     font-size: 0.75rem;
     color: #6B7280;
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-}
-.pro-index__badge {
-    font-size: 0.68rem;
-    font-weight: 700;
-    padding: 2px 10px;
-    border-radius: 12px;
-    letter-spacing: 0.02em;
+    margin-bottom: 6px;
 }
 .pro-index__value {
     font-size: 1.8rem;
