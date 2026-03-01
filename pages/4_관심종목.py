@@ -189,7 +189,7 @@ summary_styled = (
     .format({"등락률(%)": lambda x: f"{x:+.2f}%" if isinstance(x, (int, float)) else x})
     .map(_color_pct, subset=["등락률(%)"])
 )
-st.dataframe(summary_styled, use_container_width=True)
+st.dataframe(summary_styled, width="stretch")
 
 st.markdown("---")
 
@@ -325,7 +325,7 @@ if history:
         paper_bgcolor="rgba(0,0,0,0)",
         hovermode="x unified",
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # Quick stats
     if len(hdf) >= 2:
@@ -484,7 +484,7 @@ if segments:
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
         )
-        st.plotly_chart(fig_seg, use_container_width=True)
+        st.plotly_chart(fig_seg, width="stretch")
 
     with col_seg_table:
         from dashboard_style import fmt_jo
@@ -498,7 +498,7 @@ if segments:
             })
         seg_df = pd.DataFrame(seg_table)
         seg_df.index = seg_df.index + 1
-        st.dataframe(seg_df, use_container_width=True, hide_index=True,
+        st.dataframe(seg_df, width="stretch", hide_index=True,
                       height=min(len(seg_table) * 35 + 40, 320))
         st.caption(f"출처: DART {seg_year}년 사업보고서")
 else:
@@ -541,7 +541,7 @@ with st.expander("매출비중 변화 (2023년~)", expanded=False):
             hist_rows.append(row)
 
         hist_df = pd.DataFrame(hist_rows)
-        st.dataframe(hist_df, use_container_width=True, hide_index=True,
+        st.dataframe(hist_df, width="stretch", hide_index=True,
                       height=min(len(hist_rows) * 35 + 40, 400))
 
         # 비중 추이 차트
@@ -581,7 +581,7 @@ with st.expander("매출비중 변화 (2023년~)", expanded=False):
                 plot_bgcolor="rgba(0,0,0,0)",
                 paper_bgcolor="rgba(0,0,0,0)",
             )
-            st.plotly_chart(fig_hist, use_container_width=True)
+            st.plotly_chart(fig_hist, width="stretch")
 
         st.caption("출처: DART 사업보고서 (2023년~)")
     else:
@@ -622,7 +622,7 @@ if supply_data:
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 else:
     st.info("수급 데이터 없음")
 
@@ -759,7 +759,7 @@ if model.periods:
         if q_periods:
             is_df_q, _ = _build_is_rows(q_periods, _q_col)
             styled_q = is_df_q.style.apply(_style_q_yearly_stripe, axis=1)
-            st.dataframe(styled_q, use_container_width=True, hide_index=True,
+            st.dataframe(styled_q, width="stretch", hide_index=True,
                          height=min(len(is_df_q) * 35 + 40, 700))
             st.caption("단위: 억원 (주당이익 제외) | 연도별 음영 구분")
         else:
@@ -769,7 +769,7 @@ if model.periods:
         if fy_periods:
             is_df_a, _ = _build_is_rows(fy_periods, _fy_col)
             styled_a = is_df_a.style.apply(_style_margin_only, axis=1)
-            st.dataframe(styled_a, use_container_width=True, hide_index=True,
+            st.dataframe(styled_a, width="stretch", hide_index=True,
                          height=min(len(is_df_a) * 35 + 40, 700))
             st.caption("단위: 억원 (주당이익 제외)")
         else:
@@ -785,13 +785,13 @@ if model.periods:
             with col_bs_q:
                 bs_df_q, _ = _build_bs_rows(q_periods, _q_col)
                 styled_bs_q = bs_df_q.style.apply(_style_q_yearly_stripe, axis=1)
-                st.dataframe(styled_bs_q, use_container_width=True, hide_index=True,
+                st.dataframe(styled_bs_q, width="stretch", hide_index=True,
                              height=min(len(bs_df_q) * 35 + 40, 500))
                 st.caption("단위: 억원")
             with col_prof_q:
                 prof_df_q = _build_prof_rows(q_periods, _q_col)
                 styled_prof_q = prof_df_q.style.apply(_style_q_yearly_stripe, axis=1)
-                st.dataframe(styled_prof_q, use_container_width=True, hide_index=True,
+                st.dataframe(styled_prof_q, width="stretch", hide_index=True,
                              height=min(len(prof_df_q) * 35 + 40, 300))
 
     with bs_tab_a:
@@ -800,12 +800,12 @@ if model.periods:
             with col_bs_a:
                 bs_df_a, _ = _build_bs_rows(fy_periods, _fy_col)
                 styled_bs_a = bs_df_a.style.apply(_style_margin_only, axis=1)
-                st.dataframe(styled_bs_a, use_container_width=True, hide_index=True,
+                st.dataframe(styled_bs_a, width="stretch", hide_index=True,
                              height=min(len(bs_df_a) * 35 + 40, 500))
                 st.caption("단위: 억원")
             with col_prof_a:
                 prof_df_a = _build_prof_rows(fy_periods, _fy_col)
-                st.dataframe(prof_df_a, use_container_width=True, hide_index=True,
+                st.dataframe(prof_df_a, width="stretch", hide_index=True,
                              height=min(len(prof_df_a) * 35 + 40, 300))
 
 # ── Recent Disclosures ──
@@ -826,7 +826,7 @@ if disc_list:
     disc_df.index = disc_df.index + 1
     st.dataframe(
         disc_df,
-        use_container_width=True,
+        width="stretch",
         column_config={
             "DART 링크": st.column_config.LinkColumn("DART 링크", display_text="보기"),
         },

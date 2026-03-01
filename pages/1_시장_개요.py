@@ -123,7 +123,7 @@ with tab_pct:
         display_df["등락률(%)"] = display_df["등락률(%)"].apply(lambda x: f"{x:+.2f}%")
         display_df = display_df.reset_index(drop=True)
         display_df.index = display_df.index + 1
-        st.dataframe(display_df, use_container_width=True, height=600)
+        st.dataframe(display_df, width="stretch", height=600)
 
 
 with tab_trade:
@@ -150,7 +150,7 @@ with tab_trade:
         display_df["등락률(%)"] = display_df["등락률(%)"].apply(lambda x: f"{x:+.2f}%")
         display_df = display_df.reset_index(drop=True)
         display_df.index = display_df.index + 1
-        st.dataframe(display_df, use_container_width=True, height=600)
+        st.dataframe(display_df, width="stretch", height=600)
 
 
 with tab_ratio:
@@ -181,7 +181,7 @@ with tab_ratio:
         display_df["비율(%)"] = display_df["비율(%)"].apply(lambda x: f"{x:.2f}%")
         display_df = display_df.reset_index(drop=True)
         display_df.index = display_df.index + 1
-        st.dataframe(display_df, use_container_width=True, height=600)
+        st.dataframe(display_df, width="stretch", height=600)
 
 
 # ---------------------------------------------------------------------------
@@ -209,5 +209,5 @@ else:
             display_df["고가"] = display_df["고가"].apply(lambda x: f"{x:,}" if x else "-")
             display_df = display_df.reset_index(drop=True)
             display_df.index = display_df.index + 1
-            st.dataframe(display_df, use_container_width=True, height=min(len(rows) * 35 + 40, 600))
+            st.dataframe(display_df, width="stretch", height=min(len(rows) * 35 + 40, 600))
             st.caption(f"총 {len(rows)}종목")
