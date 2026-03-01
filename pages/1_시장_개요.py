@@ -127,7 +127,7 @@ with tab_pct:
             "등락률 상위 20",
             fmt="+.2f",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with col_table:
         display_df = top_up[["name", "code", "market", "close", "change", "pct", "market_cap"]].copy()
@@ -139,7 +139,7 @@ with tab_pct:
         display_df = display_df.reset_index(drop=True)
         display_df.index = display_df.index + 1
         styled_df = display_df.style.map(_style_pct_col, subset=["등락률(%)"])
-        st.dataframe(styled_df, use_container_width=True, height=600, hide_index=False)
+        st.dataframe(styled_df, width="stretch", height=600, hide_index=False)
 
 
 with tab_trade:
@@ -155,7 +155,7 @@ with tab_trade:
             fmt=",.0f",
             color_by_sign=False,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with col_table:
         display_df = top_trade[["name", "code", "market", "close", "pct", "trade_value", "market_cap"]].copy()
@@ -167,7 +167,7 @@ with tab_trade:
         display_df = display_df.reset_index(drop=True)
         display_df.index = display_df.index + 1
         styled_df = display_df.style.map(_style_pct_col, subset=["등락률(%)"])
-        st.dataframe(styled_df, use_container_width=True, height=600, hide_index=False)
+        st.dataframe(styled_df, width="stretch", height=600, hide_index=False)
 
 
 with tab_ratio:
@@ -186,7 +186,7 @@ with tab_ratio:
             fmt=".2f",
             color_by_sign=False,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with col_table:
         display_df = top_ratio[["name", "code", "market", "close", "pct", "trade_value", "market_cap", "ratio"]].copy()
@@ -199,7 +199,7 @@ with tab_ratio:
         display_df = display_df.reset_index(drop=True)
         display_df.index = display_df.index + 1
         styled_df = display_df.style.map(_style_pct_col, subset=["등락률(%)"])
-        st.dataframe(styled_df, use_container_width=True, height=600, hide_index=False)
+        st.dataframe(styled_df, width="stretch", height=600, hide_index=False)
 
 
 # ---------------------------------------------------------------------------
@@ -228,5 +228,5 @@ else:
             display_df = display_df.reset_index(drop=True)
             display_df.index = display_df.index + 1
             styled_df = display_df.style.map(_style_pct_col, subset=["등락률(%)"])
-            st.dataframe(styled_df, use_container_width=True, height=min(len(rows) * 35 + 40, 600), hide_index=False)
+            st.dataframe(styled_df, width="stretch", height=min(len(rows) * 35 + 40, 600), hide_index=False)
             st.caption(f"총 {len(rows)}종목")

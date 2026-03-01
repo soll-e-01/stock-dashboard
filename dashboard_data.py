@@ -1586,6 +1586,16 @@ def _parse_segment_from_report(
                         if f"{year}." in rn or f"{year}년" in rn or f"({year}" in rn:
                             rcept_no = item["rcept_no"]
                             break
+        # 3차: 보고서명 형식이 비표준인 경우 (연도 검증 포함)
+        if not rcept_no:
+            for item in reports:
+                rn = item.get("report_nm", "")
+                rcept_dt = item.get("rcept_dt", "")
+                if target_keyword in rn and _is_target_quarter(rn, rcept_dt):
+                    found_years = re.findall(r'\d{4}', rn)
+                    if not found_years or any(int(y) == year for y in found_years):
+                        rcept_no = item["rcept_no"]
+                        break
         if not rcept_no:
             return None
 

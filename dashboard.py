@@ -4,7 +4,8 @@ Run with: streamlit run dashboard.py
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import streamlit as st
 
@@ -30,7 +31,8 @@ with st.sidebar:
     st.title("Stock Dashboard")
     st.divider()
 
-    today = date.today()
+    _KST = ZoneInfo("Asia/Seoul")
+    today = datetime.now(_KST).date()
     # Default to most recent weekday
     if today.weekday() >= 5:  # Saturday or Sunday
         today = today - timedelta(days=today.weekday() - 4)
@@ -38,7 +40,7 @@ with st.sidebar:
     selected_date = st.date_input(
         "조회 일자",
         value=today,
-        max_value=date.today(),
+        max_value=datetime.now(_KST).date(),
         format="YYYY/MM/DD",
     )
     st.session_state["selected_date"] = selected_date
@@ -48,7 +50,7 @@ with st.sidebar:
 
     st.divider()
 
-    if st.button("캐시 초기화", use_container_width=True):
+    if st.button("캐시 초기화", width="stretch"):
         st.cache_data.clear()
         st.toast("캐시가 초기화되었습니다.")
 

@@ -230,7 +230,7 @@ with all_tabs[0]:
             vals = [kospi_data[n] for n in names]
             if names:
                 fig = _trend_bar_chart(names, vals, "KOSPI", height=230)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
         with col_kosdaq:
             kosdaq_data = trend_overview.get("KOSDAQ", {})
@@ -238,7 +238,7 @@ with all_tabs[0]:
             vals = [kosdaq_data[n] for n in names]
             if names:
                 fig = _trend_bar_chart(names, vals, "KOSDAQ", height=230)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
         st.markdown(_trend_summary_table(trend_overview), unsafe_allow_html=True)
 
@@ -255,7 +255,7 @@ with all_tabs[0]:
             vals = [kospi_detail[n] for n in names]
             if names:
                 fig = _trend_bar_chart(names, vals, "KOSPI 기관 세부", height=230)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
         with col_kosdaq2:
             kosdaq_detail = trend_detail.get("KOSDAQ", {})
@@ -263,7 +263,7 @@ with all_tabs[0]:
             vals = [kosdaq_detail[n] for n in names]
             if names:
                 fig = _trend_bar_chart(names, vals, "KOSDAQ 기관 세부", height=230)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
         st.markdown(
             '<p class="source-text">KRX 기준 (당일 순매수 합계)</p>',
@@ -292,7 +292,7 @@ for tab, inv_name in zip(all_tabs[1:], investor_names):
                 top_buy["net_buy_eok"].tolist(),
                 f"{inv_name} 순매수 Top 10 (억원)",
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         with col_sell:
             fig = _supply_bar_chart(
@@ -300,7 +300,7 @@ for tab, inv_name in zip(all_tabs[1:], investor_names):
                 top_sell["net_buy_eok"].tolist(),
                 f"{inv_name} 순매도 Top 10 (억원)",
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         # Market cap ratio top 10
         if "ratio" in df.columns:
@@ -335,7 +335,7 @@ for tab, inv_name in zip(all_tabs[1:], investor_names):
                     bargap=0.25,
                     plot_bgcolor="#FAFBFC",
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
         # Full data table
         st.markdown("")
@@ -352,4 +352,4 @@ for tab, inv_name in zip(all_tabs[1:], investor_names):
             display_df = display_df.reset_index(drop=True)
             display_df.index = display_df.index + 1
             styled_df = display_df.style.map(_style_signed_col, subset=["순매수(억)", "비율(%)"])
-            st.dataframe(styled_df, use_container_width=True, height=500, hide_index=False)
+            st.dataframe(styled_df, width="stretch", height=500, hide_index=False)
