@@ -505,8 +505,7 @@ else:
     st.info("사업부문별 매출 데이터가 없습니다. (DART 사업보고서에 세그먼트 정보가 없는 종목)")
 
 # ── Segment Revenue History (매출비중 변화) ──
-with st.expander("매출비중 변화 (2023년~)", expanded=False):
-    # Inline: load_segment_data per year (avoids stale module cache issues)
+with st.expander("사업부문 매출 추이 (2023년~)", expanded=False):
     from datetime import date as _date
     _current_year = _date.today().year
     seg_history: dict[int, list] = {}
@@ -514,6 +513,7 @@ with st.expander("매출비중 변화 (2023년~)", expanded=False):
         _segs = load_segment_data(corp_code, _yr)
         if _segs:
             seg_history[_yr] = _segs
+
     if seg_history and len(seg_history) >= 1:
         # 모든 부문명 수집 (순서 보존)
         all_seg_names: list[str] = []
@@ -524,66 +524,177 @@ with st.expander("매출비중 변화 (2023년~)", expanded=False):
                     all_seg_names.append(s["name"])
                     seen_names.add(s["name"])
 
-        # 연도별 비중 테이블 구축
-        hist_rows = []
-        for seg_name in all_seg_names:
-            row: dict[str, Any] = {"사업부문": seg_name}
-            for yr in sorted(seg_history.keys()):
+        chart_years = sorted(seg_history.keys())
+        year_strs = [str(y) for y in chart_years]
+        seg_colors = ["#2F5496", "#E74C3C", "#27AE60", "#F39C12", "#8E44AD",
+                      "#1ABC9C", "#E67E22", "#3498DB", "#9B59B6", "#2ECC71"]
+
+        # ── 1) 매출액 추이 ──
+        st.markdown(
+            '<p style="font-weight:700;color:#1F3864;font-size:0.95rem;margin:12px 0 4px;">'
+            '매출액 추이</p>',
+            unsafe_allow_html=True,
+        )
+
+        # 매출액 Grouped Bar Chart
+        fig_rev = go.Figure()
+        for si, seg_name in enumerate(all_seg_names):
+            rev_vals = []
+            for yr in chart_years:
                 yr_segs = {s["name"]: s for s in seg_history[yr]}
                 if seg_name in yr_segs:
-                    s = yr_segs[seg_name]
-                    rev_eok = int(round(s["revenue"] / 1_0000_0000))
-                    row[f"{yr} 매출(억)"] = f"{rev_eok:,}" if rev_eok else "-"
-                    row[f"{yr} 비중(%)"] = f"{s['pct']:.1f}%"
+                    rev_vals.append(int(round(yr_segs[seg_name]["revenue"] / 1_0000_0000)))
                 else:
-                    row[f"{yr} 매출(억)"] = "-"
-                    row[f"{yr} 비중(%)"] = "-"
-            hist_rows.append(row)
+                    rev_vals.append(0)
+            fig_rev.add_trace(go.Bar(
+                x=year_strs,
+                y=rev_vals,
+                name=seg_name,
+                marker_color=seg_colors[si % len(seg_colors)],
+                text=[f"{v:,}" if v else "" for v in rev_vals],
+                textposition="outside",
+                textfont=dict(size=9, color="#6B7280"),
+                cliponaxis=False,
+            ))
+        fig_rev.update_layout(
+            barmode="group",
+            height=340,
+            margin=dict(l=0, r=0, t=10, b=0),
+            template=CHART_TEMPLATE,
+            yaxis=dict(
+                title="억원", titlefont=dict(size=10, color="#9CA3AF"),
+                showgrid=True, gridcolor="#F3F4F6", gridwidth=0.5,
+                tickfont=dict(size=9, color="#9CA3AF"),
+            ),
+            xaxis=dict(showgrid=False, tickfont=dict(size=11, color="#374151")),
+            legend=dict(
+                orientation="h", yanchor="bottom", y=-0.22,
+                xanchor="center", x=0.5, font=dict(size=10),
+            ),
+            bargap=0.25, bargroupgap=0.08,
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+        )
+        st.plotly_chart(fig_rev, use_container_width=True)
 
-        hist_df = pd.DataFrame(hist_rows)
-        st.dataframe(hist_df, use_container_width=True, hide_index=True,
-                      height=min(len(hist_rows) * 35 + 40, 400))
+        # 매출액 테이블
+        rev_rows = []
+        for seg_name in all_seg_names:
+            row: dict[str, Any] = {"사업부문": seg_name}
+            prev_val = None
+            for yr in chart_years:
+                yr_segs = {s["name"]: s for s in seg_history[yr]}
+                if seg_name in yr_segs:
+                    rev_eok = int(round(yr_segs[seg_name]["revenue"] / 1_0000_0000))
+                    row[f"{yr}"] = f"{rev_eok:,}" if rev_eok else "-"
+                    if prev_val and rev_eok:
+                        yoy = (rev_eok - prev_val) / abs(prev_val) * 100
+                        row[f"{yr} YoY"] = f"{yoy:+.1f}%"
+                    else:
+                        row[f"{yr} YoY"] = ""
+                    prev_val = rev_eok if rev_eok else None
+                else:
+                    row[f"{yr}"] = "-"
+                    row[f"{yr} YoY"] = ""
+                    prev_val = None
+            rev_rows.append(row)
+        rev_df = pd.DataFrame(rev_rows)
+        # YoY 열 스타일링
+        def _style_yoy(val):
+            if isinstance(val, str) and val.startswith("+"):
+                return f"color:{COLOR_UP};font-size:0.8em;font-weight:600;"
+            elif isinstance(val, str) and val.startswith("-"):
+                return f"color:{COLOR_DOWN};font-size:0.8em;font-weight:600;"
+            return "color:#9CA3AF;font-size:0.8em;"
+        yoy_cols = [c for c in rev_df.columns if "YoY" in c]
+        styled_rev = rev_df.style.map(_style_yoy, subset=yoy_cols) if yoy_cols else rev_df.style
+        st.dataframe(styled_rev, use_container_width=True, hide_index=True,
+                     height=min(len(rev_rows) * 35 + 40, 320))
 
-        # 비중 추이 차트
-        chart_years = sorted(seg_history.keys())
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+        # ── 2) 매출비중 추이 ──
+        st.markdown(
+            '<p style="font-weight:700;color:#1F3864;font-size:0.95rem;margin:12px 0 4px;">'
+            '매출비중 추이</p>',
+            unsafe_allow_html=True,
+        )
+
+        # 비중 Stacked Bar Chart
         if len(chart_years) >= 2:
-            fig_hist = go.Figure()
-            colors = ["#2F5496", "#E74C3C", "#27AE60", "#F39C12", "#8E44AD",
-                       "#1ABC9C", "#E67E22", "#3498DB", "#9B59B6", "#2ECC71"]
+            fig_pct = go.Figure()
             for si, seg_name in enumerate(all_seg_names):
                 pcts = []
                 for yr in chart_years:
                     yr_segs = {s["name"]: s for s in seg_history[yr]}
                     pcts.append(yr_segs[seg_name]["pct"] if seg_name in yr_segs else 0)
-                fig_hist.add_trace(go.Scatter(
-                    x=[str(y) for y in chart_years],
+                fig_pct.add_trace(go.Bar(
+                    x=year_strs,
                     y=pcts,
-                    mode="lines+markers",
                     name=seg_name,
-                    line=dict(color=colors[si % len(colors)], width=2),
-                    marker=dict(size=7),
+                    marker_color=seg_colors[si % len(seg_colors)],
+                    text=[f"{p:.1f}%" if p else "" for p in pcts],
+                    textposition="inside",
+                    insidetextanchor="middle",
+                    textfont=dict(size=10, color="white", weight="bold"),
                 ))
-            fig_hist.update_layout(
-                height=320,
-                margin=dict(l=10, r=10, t=30, b=10),
+            fig_pct.update_layout(
+                barmode="stack",
+                height=340,
+                margin=dict(l=0, r=0, t=10, b=0),
                 template=CHART_TEMPLATE,
-                title=dict(
-                    text="사업부문 매출비중 추이 (%)",
-                    font=dict(size=13, color="#1F3864"),
-                    x=0.5, xanchor="center",
+                yaxis=dict(
+                    title="%", titlefont=dict(size=10, color="#9CA3AF"),
+                    showgrid=True, gridcolor="#F3F4F6", gridwidth=0.5,
+                    tickfont=dict(size=9, color="#9CA3AF"),
+                    range=[0, 105],
                 ),
-                yaxis=dict(title="비중(%)", showgrid=True, gridcolor="#F3F4F6"),
-                xaxis=dict(showgrid=False),
+                xaxis=dict(showgrid=False, tickfont=dict(size=11, color="#374151")),
                 legend=dict(
-                    orientation="h", yanchor="bottom", y=-0.25,
+                    orientation="h", yanchor="bottom", y=-0.22,
                     xanchor="center", x=0.5, font=dict(size=10),
                 ),
+                bargap=0.35,
                 plot_bgcolor="rgba(0,0,0,0)",
                 paper_bgcolor="rgba(0,0,0,0)",
             )
-            st.plotly_chart(fig_hist, use_container_width=True)
+            st.plotly_chart(fig_pct, use_container_width=True)
 
-        st.caption("출처: DART 사업보고서 (2023년~)")
+        # 비중 테이블
+        pct_rows = []
+        for seg_name in all_seg_names:
+            row: dict[str, Any] = {"사업부문": seg_name}
+            first_pct = None
+            last_pct = None
+            for yr in chart_years:
+                yr_segs = {s["name"]: s for s in seg_history[yr]}
+                if seg_name in yr_segs:
+                    pct = yr_segs[seg_name]["pct"]
+                    row[f"{yr}"] = f"{pct:.1f}%"
+                    if first_pct is None:
+                        first_pct = pct
+                    last_pct = pct
+                else:
+                    row[f"{yr}"] = "-"
+            # 전체 기간 변화 (pp)
+            if first_pct is not None and last_pct is not None and len(chart_years) >= 2:
+                diff = last_pct - first_pct
+                row["변화(pp)"] = f"{diff:+.1f}"
+            else:
+                row["변화(pp)"] = ""
+            pct_rows.append(row)
+        pct_df = pd.DataFrame(pct_rows)
+        def _style_pp(val):
+            if isinstance(val, str) and val.startswith("+"):
+                return f"color:{COLOR_UP};font-weight:600;"
+            elif isinstance(val, str) and val.startswith("-"):
+                return f"color:{COLOR_DOWN};font-weight:600;"
+            return "color:#9CA3AF;"
+        styled_pct = pct_df.style.map(_style_pp, subset=["변화(pp)"]) if "변화(pp)" in pct_df.columns else pct_df.style
+        st.dataframe(styled_pct, use_container_width=True, hide_index=True,
+                     height=min(len(pct_rows) * 35 + 40, 320))
+
+        st.caption("출처: DART 사업보고서 (2023년~) | 단위: 억원")
     else:
         st.info("매출비중 변화 데이터가 충분하지 않습니다.")
 
