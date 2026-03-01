@@ -828,11 +828,16 @@ def load_naver_valuations(stock_code: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @st.cache_data(show_spinner="사업부문 매출 조회 중...")
-def load_segment_data(corp_code: str, year: int) -> list[dict[str, Any]] | None:
+def load_segment_data(
+    corp_code: str, year: int, reprt_code: str = "11011",
+) -> list[dict[str, Any]] | None:
     """DART에서 사업부문별 매출 데이터 조회.
-    
+
     1차: 재무제표 API (기존 방식)
-    2차: 사업보고서 본문 HTML에서 부문별 매출 테이블 파싱
+    2차: 보고서 본문 HTML에서 부문별 매출 테이블 파싱
+
+    Args:
+        reprt_code: "11013"=Q1, "11012"=반기, "11014"=Q3, "11011"=연간
     """
     cfg = load_dart_config()
     dart_cfg = cfg.get("dart", {})
@@ -847,23 +852,26 @@ def load_segment_data(corp_code: str, year: int) -> list[dict[str, Any]] | None:
     )
 
     # 1차: 재무제표 API
-    result = fetch_segment_data(client, corp_code, year)
+    result = fetch_segment_data(client, corp_code, year, reprt_code)
     if result:
         return result
 
-    # 2차: 사업보고서 본문에서 파싱
-    return _parse_segment_from_report(api_key, corp_code, year)
+    # 2차: 보고서 본문에서 파싱
+    return _parse_segment_from_report(api_key, corp_code, year, reprt_code)
 
 
 def _parse_segment_from_report(
-    api_key: str, corp_code: str, year: int,
+    api_key: str, corp_code: str, year: int, reprt_code: str = "11011",
 ) -> list[dict[str, Any]] | None:
-    """DART 사업보고서 ZIP에서 부문별 매출 테이블 파싱.
+    """DART 보고서 ZIP에서 부문별 매출 테이블 파싱.
 
     지원 테이블 형태:
     1) 제품현황형 — '사업부문|매출유형|품목|매출액(비율)' 형태 (한섬, LG 등)
     2) 가로형 — 헤더에 부문명, 매출 행에 숫자 (삼성전자 등 대기업)
     3) 세로형 — 부문명이 행 방향, 당기/전기 열 방향
+
+    Args:
+        reprt_code: "11013"=Q1, "11012"=반기, "11014"=Q3, "11011"=연간
     """
     import re
     import requests
@@ -1513,8 +1521,34 @@ def _parse_segment_from_report(
             prev = prev.find_previous_sibling()
 
     # ── 메인 로직 ──
+
+    # reprt_code별 보고서명 키워드 매핑
+    _REPORT_KEYWORD_MAP = {
+        "11011": "사업보고서",
+        "11012": "반기보고서",
+        "11013": "분기보고서",  # Q1
+        "11014": "분기보고서",  # Q3
+    }
+    target_keyword = _REPORT_KEYWORD_MAP.get(reprt_code, "사업보고서")
+
+    # Q1 vs Q3 구분 (둘 다 "분기보고서")
+    # Q1: 보고서명에 "03" 또는 rcept_dt 4~6월
+    # Q3: 보고서명에 "09" 또는 rcept_dt 10~12월
+    def _is_target_quarter(report_nm: str, rcept_dt: str) -> bool:
+        if reprt_code not in ("11013", "11014"):
+            return True  # 사업보고서/반기보고서는 구분 필요 없음
+        rn = report_nm.replace(" ", "")
+        dt_month = int(rcept_dt[4:6]) if len(rcept_dt) >= 6 else 0
+        if reprt_code == "11013":  # Q1
+            # 보고서명에 "03" 포함 or 제출일 4~6월
+            return (".03)" in rn or "03월" in rn or "1분기" in rn
+                    or 4 <= dt_month <= 6)
+        else:  # "11014" — Q3
+            return (".09)" in rn or "09월" in rn or "3분기" in rn
+                    or 10 <= dt_month <= 12)
+
     try:
-        # 1. 사업보고서 검색 (12월 결산 + 다른 결산월도 시도)
+        # 1. 보고서 검색
         resp = requests.get(
             "https://opendart.fss.or.kr/api/list.json",
             params={
@@ -1523,7 +1557,7 @@ def _parse_segment_from_report(
                 "bgn_de": f"{year}0101",
                 "end_de": f"{year + 1}1231",
                 "pblntf_ty": "A",
-                "page_count": 30,
+                "page_count": 60,
             },
             timeout=30,
         )
@@ -1531,31 +1565,34 @@ def _parse_segment_from_report(
         if data.get("status") != "000":
             return None
 
-        # 사업보고서 우선순위: 정정 아닌 것 > 정정 > 아무거나
         rcept_no = None
         reports = data.get("list", [])
 
-        # 1차: 해당 연도 사업보고서 (정정 제외, 어떤 결산월이든)
+        # 1차: 해당 키워드 보고서 (정정 제외)
         for item in reports:
             rn = item.get("report_nm", "")
-            if "사업보고서" in rn and "정정" not in rn:
-                # 연도 확인: report_nm에 대상 연도가 포함되어 있는지
-                if f"{year}." in rn or f"{year}년" in rn:
-                    rcept_no = item["rcept_no"]
-                    break
-        # 2차: 정정 사업보고서도 허용
-        if not rcept_no:
-            for item in reports:
-                rn = item.get("report_nm", "")
-                if "사업보고서" in rn:
-                    if f"{year}." in rn or f"{year}년" in rn:
+            rcept_dt = item.get("rcept_dt", "")
+            if target_keyword in rn and "정정" not in rn:
+                if _is_target_quarter(rn, rcept_dt):
+                    if f"{year}." in rn or f"{year}년" in rn or f"({year}" in rn:
                         rcept_no = item["rcept_no"]
                         break
-        # 3차: 아무 사업보고서
+        # 2차: 정정 보고서도 허용
         if not rcept_no:
             for item in reports:
                 rn = item.get("report_nm", "")
-                if "사업보고서" in rn:
+                rcept_dt = item.get("rcept_dt", "")
+                if target_keyword in rn:
+                    if _is_target_quarter(rn, rcept_dt):
+                        if f"{year}." in rn or f"{year}년" in rn or f"({year}" in rn:
+                            rcept_no = item["rcept_no"]
+                            break
+        # 3차: 연도 무관하게 키워드 + 분기 매칭
+        if not rcept_no:
+            for item in reports:
+                rn = item.get("report_nm", "")
+                rcept_dt = item.get("rcept_dt", "")
+                if target_keyword in rn and _is_target_quarter(rn, rcept_dt):
                     rcept_no = item["rcept_no"]
                     break
         if not rcept_no:

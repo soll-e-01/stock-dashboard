@@ -444,14 +444,14 @@ def fetch_segment_data(
     client: DartFinancialClient,
     corp_code: str,
     bsns_year: int,
+    reprt_code: str = "11011",
     fs_div: str = "CFS",
 ) -> list[dict[str, Any]] | None:
     """DART API에서 사업부문별 매출 시도. 실패시 None 반환."""
     try:
-        # FY 보고서에서 시도
-        items = client.fetch_full_statements(corp_code, bsns_year, "11011", fs_div)
+        items = client.fetch_full_statements(corp_code, bsns_year, reprt_code, fs_div)
         if not items and fs_div == "CFS":
-            items = client.fetch_full_statements(corp_code, bsns_year, "11011", "OFS")
+            items = client.fetch_full_statements(corp_code, bsns_year, reprt_code, "OFS")
 
         # sj_div로 세그먼트 항목 탐색
         seg_items = [x for x in items if x.get("sj_div") in ("ASIS",)]
@@ -1252,7 +1252,7 @@ def main() -> int:
         name = entry.get("name", "")
         corp_code = entry.get("corp_code", "")
         print(f"[사업부] {name} 사업부 매출 조회 중...")
-        segs = fetch_segment_data(client, corp_code, financial_years[-1], fs_div)
+        segs = fetch_segment_data(client, corp_code, financial_years[-1], fs_div=fs_div)
         segments_by_corp[corp_code] = segs
         if segs:
             print(f"  → {len(segs)}개 사업부 발견")
