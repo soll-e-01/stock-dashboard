@@ -168,8 +168,7 @@ def _krx_client_and_config():
         client.login()
         logger.warning("[KRX] 로그인 성공")
     except Exception as e:
-        logger.warning(f"[KRX] 로그인 실패: {e}")
-        raise
+        logger.warning(f"[KRX] 로그인 실패 (비로그인 모드로 계속): {e}")
     return client, cfg
 
 
@@ -1587,14 +1586,6 @@ def _parse_segment_from_report(
                         if f"{year}." in rn or f"{year}년" in rn or f"({year}" in rn:
                             rcept_no = item["rcept_no"]
                             break
-        # 3차: 연도 무관하게 키워드 + 분기 매칭
-        if not rcept_no:
-            for item in reports:
-                rn = item.get("report_nm", "")
-                rcept_dt = item.get("rcept_dt", "")
-                if target_keyword in rn and _is_target_quarter(rn, rcept_dt):
-                    rcept_no = item["rcept_no"]
-                    break
         if not rcept_no:
             return None
 

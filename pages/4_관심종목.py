@@ -696,7 +696,7 @@ else:
     st.info("사업부문별 매출 데이터가 없습니다. (DART 사업보고서에 세그먼트 정보가 없는 종목)")
 
 # ── Segment Revenue History (매출비중 변화) ──
-with st.expander("사업부문 매출 추이 (2024~)", expanded=False):
+with st.expander("사업부문 매출 추이", expanded=False):
     from datetime import date as _date
     _current_year = _date.today().year
 
@@ -707,27 +707,38 @@ with st.expander("사업부문 매출 추이 (2024~)", expanded=False):
         ("11011", "FY"),
     ]
 
-    # 연간 데이터 (차트 + 표 디폴트)
-    seg_yearly: dict[str, list] = {}
-    for _yr in range(2024, _current_year + 1):
-        _segs = load_segment_data(corp_code, _yr)
-        if _segs:
-            seg_yearly[str(_yr)] = _segs
+    # 기간 전환 토글 (차트 + 표 모두 적용)
+    _table_view = st.radio(
+        "기간 구분", ["연간", "분기별"],
+        index=0, horizontal=True, key="seg_table_view",
+    )
 
-    # 분기별 데이터 (표 옵션 — lazy load)
-    seg_quarterly: dict[str, list] = {}
+    # 데이터 로드
+    _seg_data: dict[str, list] = {}
+    if _table_view == "연간":
+        for _yr in range(2023, _current_year):
+            _segs = load_segment_data(corp_code, _yr)
+            if _segs:
+                _seg_data[str(_yr)] = _segs
+    else:
+        for _yr in range(2024, _current_year + 1):
+            for _reprt_code, _q_label in _QUARTERS:
+                _period_key = f"{str(_yr)[2:]}.{_q_label}"
+                _segs = load_segment_data(corp_code, _yr, _reprt_code)
+                if _segs:
+                    _seg_data[_period_key] = _segs
 
-    if seg_yearly and len(seg_yearly) >= 1:
-        # 모든 부문명 수집 (순서 보존) — 연간 기준
+    if _seg_data and len(_seg_data) >= 1:
+        # 모든 부문명 수집 (순서 보존)
         all_seg_names: list[str] = []
         seen_names: set[str] = set()
-        for pk in sorted(seg_yearly.keys()):
-            for s in seg_yearly[pk]:
+        for pk in sorted(_seg_data.keys()):
+            for s in _seg_data[pk]:
                 if s["name"] not in seen_names:
                     all_seg_names.append(s["name"])
                     seen_names.add(s["name"])
 
-        chart_years = sorted(seg_yearly.keys())
+        chart_periods = sorted(_seg_data.keys())
         seg_colors = ["#2F5496", "#E74C3C", "#27AE60", "#F39C12", "#8E44AD",
                       "#1ABC9C", "#E67E22", "#3498DB", "#9B59B6", "#2ECC71"]
 
@@ -738,8 +749,8 @@ with st.expander("사업부문 매출 추이 (2024~)", expanded=False):
         for si, seg_name in enumerate(all_seg_names):
             rev_vals = []
             pct_vals = []
-            for pk in chart_years:
-                pk_segs = {s["name"]: s for s in seg_yearly[pk]}
+            for pk in chart_periods:
+                pk_segs = {s["name"]: s for s in _seg_data[pk]}
                 if seg_name in pk_segs:
                     rev_vals.append(int(round(pk_segs[seg_name]["revenue"] / 1_0000_0000)))
                     pct_vals.append(pk_segs[seg_name]["pct"])
@@ -751,7 +762,7 @@ with st.expander("사업부문 매출 추이 (2024~)", expanded=False):
             # Bar: 매출액
             fig_combo.add_trace(
                 go.Bar(
-                    x=chart_years, y=rev_vals,
+                    x=chart_periods, y=rev_vals,
                     name=seg_name,
                     marker_color=color,
                     text=[f"{v:,}" if v else "" for v in rev_vals],
@@ -766,7 +777,7 @@ with st.expander("사업부문 매출 추이 (2024~)", expanded=False):
             # Line: 매출비중
             fig_combo.add_trace(
                 go.Scatter(
-                    x=chart_years, y=pct_vals,
+                    x=chart_periods, y=pct_vals,
                     name=f"{seg_name} (%)",
                     mode="lines+markers",
                     line=dict(color=color, width=2, dash="dot"),
@@ -805,32 +816,8 @@ with st.expander("사업부문 매출 추이 (2024~)", expanded=False):
         st.plotly_chart(fig_combo, use_container_width=True)
         st.caption("막대: 매출액(억원) | 점선: 매출비중(%)")
 
-        # 표 보기 토글 (연간/분기별)
-        _table_view = st.radio(
-            "표 보기", ["연간", "분기별"],
-            index=0, horizontal=True, key="seg_table_view",
-        )
-
-        # 분기별 선택 시 분기 데이터 로드
-        if _table_view == "분기별" and not seg_quarterly:
-            for _yr in range(2024, _current_year + 1):
-                for _reprt_code, _q_label in _QUARTERS:
-                    _period_key = f"{str(_yr)[2:]}.{_q_label}"
-                    _segs = load_segment_data(corp_code, _yr, _reprt_code)
-                    if _segs:
-                        seg_quarterly[_period_key] = _segs
-            # 분기 부문명 보강
-            for pk in sorted(seg_quarterly.keys()):
-                for s in seg_quarterly[pk]:
-                    if s["name"] not in seen_names:
-                        all_seg_names.append(s["name"])
-                        seen_names.add(s["name"])
-
-        # 표 데이터 소스 결정
-        _table_data = seg_yearly if _table_view == "연간" else seg_quarterly
-        _table_periods = sorted(_table_data.keys())
-
         # 매출액 테이블
+        _table_periods = chart_periods
         st.markdown(
             '<p style="font-weight:600;color:#374151;font-size:0.85rem;margin:12px 0 4px;">'
             '매출액 (억원)</p>',
@@ -840,7 +827,7 @@ with st.expander("사업부문 매출 추이 (2024~)", expanded=False):
         for seg_name in all_seg_names:
             row: dict[str, Any] = {"사업부문": seg_name}
             for pk in _table_periods:
-                pk_segs = {s["name"]: s for s in _table_data[pk]}
+                pk_segs = {s["name"]: s for s in _seg_data[pk]}
                 if seg_name in pk_segs:
                     rev_eok = int(round(pk_segs[seg_name]["revenue"] / 1_0000_0000))
                     row[pk] = f"{rev_eok:,}" if rev_eok else "-"
@@ -863,7 +850,7 @@ with st.expander("사업부문 매출 추이 (2024~)", expanded=False):
             first_pct = None
             last_pct = None
             for pk in _table_periods:
-                pk_segs = {s["name"]: s for s in _table_data[pk]}
+                pk_segs = {s["name"]: s for s in _seg_data[pk]}
                 if seg_name in pk_segs:
                     pct = pk_segs[seg_name]["pct"]
                     row[pk] = f"{pct:.1f}%"
@@ -890,7 +877,7 @@ with st.expander("사업부문 매출 추이 (2024~)", expanded=False):
         st.dataframe(styled_pct, use_container_width=True, hide_index=True,
                      height=min(len(pct_rows) * 35 + 40, 320))
 
-        _source_label = "출처: DART 사업보고서 (2024~)" if _table_view == "연간" else "출처: DART 보고서 (분기/반기/사업보고서, 2024~)"
+        _source_label = "출처: DART 사업보고서 (2023~)" if _table_view == "연간" else "출처: DART 보고서 (분기/반기/사업보고서, 2024~)"
         st.caption(f"{_source_label} | 단위: 억원")
     else:
         st.info("매출비중 변화 데이터가 충분하지 않습니다.")
