@@ -1,0 +1,31 @@
+# Config files with API keys / credentials
+config.dart.json
+config.krx.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Data output
+시장 정리/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Misc
+*.bat
+industry_cache.json
+nul
+tmpclaude-*
+test_krx*.py

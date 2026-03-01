@@ -1,0 +1,156 @@
+{
+  "output_dir": "시장 정리",
+  "template_files": {
+    "price": "시장 정리/260213_시세_DATA.xlsx",
+    "supply": "시장 정리/260213_수급_DATA.xlsx",
+    "high": "시장 정리/260213_신고가.xlsx"
+  },
+  "krx": {
+    "login": {
+      "mbrId": "",
+      "pw": ""
+    },
+    "login_page_url": "https://data.krx.co.kr/contents/MDC/MAIN/main/index.cmd",
+    "login_url": "https://data.krx.co.kr/contents/MDC/COMS/client/MDCCOMS001D1.cmd",
+    "json_url": "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
+    "otp_url": "https://data.krx.co.kr/comm/fileDn/GenerateOTP/generate.cmd",
+    "download_url": "https://data.krx.co.kr/comm/fileDn/download_csv/download.cmd",
+    "timeout_sec": 30,
+    "encoding": "cp949",
+    "headers": {
+      "Referer": "https://data.krx.co.kr/contents/MDC/MDI/mdiLoader/index.cmd",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    }
+  },
+  "datasets": {
+    "price_all": {
+      "request_params": {
+        "bld": "dbms/MDC/STAT/standard/MDCSTAT01501",
+        "locale": "ko_KR",
+        "mktId": "ALL",
+        "trdDd": "__DATE__",
+        "share": "1",
+        "money": "1",
+        "csvxls_isNo": "false"
+      },
+      "field_map": {
+        "code": ["ISU_SRT_CD", "종목코드"],
+        "name": ["ISU_ABBRV", "종목명"],
+        "market": ["MKT_NM", "시장구분"],
+        "sector": ["SECT_TP_NM", "소속부"],
+        "close": ["TDD_CLSPRC", "종가"],
+        "change": ["CMPPREVDD_PRC", "대비"],
+        "pct": ["FLUC_RT", "등락률"],
+        "open": ["TDD_OPNPRC", "시가"],
+        "high": ["TDD_HGPRC", "고가"],
+        "low": ["TDD_LWPRC", "저가"],
+        "volume": ["ACC_TRDVOL", "거래량"],
+        "trade_value": ["ACC_TRDVAL", "거래대금"],
+        "market_cap": ["MKTCAP", "시가총액"],
+        "listed_shares": ["LIST_SHRS", "상장주식수"]
+      }
+    },
+    "supply": {
+      "사모펀드": {
+        "request_params": {
+          "bld": "dbms/MDC/STAT/standard/MDCSTAT02401",
+          "locale": "ko_KR",
+          "mktId": "ALL",
+          "invstTpCd": "3100",
+          "strtDd": "__DATE__",
+          "endDd": "__DATE__",
+          "share": "1",
+          "money": "1",
+          "csvxls_isNo": "false"
+        }
+      },
+      "투자신탁": {
+        "request_params": {
+          "bld": "dbms/MDC/STAT/standard/MDCSTAT02401",
+          "locale": "ko_KR",
+          "mktId": "ALL",
+          "invstTpCd": "3000",
+          "strtDd": "__DATE__",
+          "endDd": "__DATE__",
+          "share": "1",
+          "money": "1",
+          "csvxls_isNo": "false"
+        }
+      },
+      "연기금": {
+        "request_params": {
+          "bld": "dbms/MDC/STAT/standard/MDCSTAT02401",
+          "locale": "ko_KR",
+          "mktId": "ALL",
+          "invstTpCd": "6000",
+          "strtDd": "__DATE__",
+          "endDd": "__DATE__",
+          "share": "1",
+          "money": "1",
+          "csvxls_isNo": "false"
+        }
+      },
+      "외국인": {
+        "request_params": {
+          "bld": "dbms/MDC/STAT/standard/MDCSTAT02401",
+          "locale": "ko_KR",
+          "mktId": "ALL",
+          "invstTpCd": "9000",
+          "strtDd": "__DATE__",
+          "endDd": "__DATE__",
+          "share": "1",
+          "money": "1",
+          "csvxls_isNo": "false"
+        }
+      },
+      "개인": {
+        "request_params": {
+          "bld": "dbms/MDC/STAT/standard/MDCSTAT02401",
+          "locale": "ko_KR",
+          "mktId": "ALL",
+          "invstTpCd": "8000",
+          "strtDd": "__DATE__",
+          "endDd": "__DATE__",
+          "share": "1",
+          "money": "1",
+          "csvxls_isNo": "false"
+        }
+      }
+    },
+    "highs": {
+      "역대 신고가": {
+        "request_params": {
+          "bld": "dbms/MDC/EASY/main/MDCEASY00601",
+          "locale": "ko_KR",
+          "mktId": "ALL",
+          "anlPdTpCd": "1",
+          "share": "1",
+          "money": "1",
+          "csvxls_isNo": "false"
+        }
+      },
+      "연중 신고가": {
+        "request_params": {
+          "bld": "dbms/MDC/EASY/main/MDCEASY00601",
+          "locale": "ko_KR",
+          "mktId": "ALL",
+          "anlPdTpCd": "2",
+          "share": "1",
+          "money": "1",
+          "csvxls_isNo": "false"
+        }
+      },
+      "52주 신고가": {
+        "request_params": {
+          "bld": "dbms/MDC/EASY/main/MDCEASY00601",
+          "locale": "ko_KR",
+          "mktId": "ALL",
+          "anlPdTpCd": "3",
+          "share": "1",
+          "money": "1",
+          "csvxls_isNo": "false"
+        }
+      }
+    }
+  }
+}

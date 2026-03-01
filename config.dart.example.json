@@ -1,0 +1,68 @@
+{
+  "output_dir": "시장 정리",
+  "dart": {
+    "api_key": "",
+    "base_url": "https://opendart.fss.or.kr/api",
+    "timeout_sec": 30,
+    "page_size": 100,
+    "request_delay_sec": 0.5,
+    "pblntf_types": ["A", "B", "D", "E", "I"]
+  },
+  "watchlist": [
+    {"stock_code": "020000", "corp_code": "00188089", "name": "한섬"},
+    {"stock_code": "037350", "corp_code": "00216498", "name": "성도이엔지"},
+    {"stock_code": "005930", "corp_code": "00126380", "name": "삼성전자"},
+    {"stock_code": "000660", "corp_code": "00164779", "name": "SK하이닉스"},
+    {"stock_code": "079550", "corp_code": "00503668", "name": "LIG넥스원"},
+    {"stock_code": "028260", "corp_code": "00149655", "name": "삼성물산"},
+    {"stock_code": "243840", "corp_code": "00807379", "name": "신흥에스이씨"},
+    {"stock_code": "085910", "corp_code": "00447928", "name": "네오티스"},
+    {"stock_code": "005490", "corp_code": "00155319", "name": "POSCO홀딩스"}
+  ],
+  "watchlist_output": {
+    "financial_years": [2023, 2024, 2025],
+    "fs_div": "CFS"
+  },
+  "classification": {
+    "B": [
+      {"subcategory": "유상증자", "keywords": ["유상증자", "주주배정", "일반공모", "제3자배정"], "priority": 1},
+      {"subcategory": "무상증자", "keywords": ["무상증자"], "priority": 2},
+      {"subcategory": "CB발행", "keywords": ["전환사채", "CB"], "priority": 3},
+      {"subcategory": "BW발행", "keywords": ["신주인수권부사채", "BW"], "priority": 4},
+      {"subcategory": "EB발행", "keywords": ["교환사채", "EB"], "priority": 5},
+      {"subcategory": "합병", "keywords": ["합병"], "priority": 6},
+      {"subcategory": "분할", "keywords": ["분할", "물적분할", "인적분할"], "priority": 7},
+      {"subcategory": "영업양수도", "keywords": ["영업양수", "영업양도", "사업양수", "사업양도"], "priority": 8},
+      {"subcategory": "주식교환/이전", "keywords": ["주식교환", "주식이전", "포괄적교환", "포괄적이전"], "priority": 9},
+      {"subcategory": "자기주식취득", "keywords": ["자기주식.*취득", "자사주.*취득"], "priority": 10},
+      {"subcategory": "자기주식처분", "keywords": ["자기주식.*처분", "자사주.*처분"], "priority": 11},
+      {"subcategory": "자기주식소각", "keywords": ["자기주식.*소각", "자사주.*소각"], "priority": 12},
+      {"subcategory": "소송", "keywords": ["소송", "중재"], "priority": 13},
+      {"subcategory": "파산/회생", "keywords": ["파산", "회생", "부도", "워크아웃"], "priority": 14},
+      {"subcategory": "감자", "keywords": ["감자", "자본감소"], "priority": 15},
+      {"subcategory": "최대주주변경", "keywords": ["최대주주.*변경"], "priority": 16},
+      {"subcategory": "기타주요사항", "keywords": [], "priority": 99, "is_fallback": true}
+    ],
+    "D": [
+      {"subcategory": "5%대량보유", "keywords": ["대량보유", "주식등의대량"], "priority": 1},
+      {"subcategory": "임원주요주주변동", "keywords": ["임원.*특정증권", "주요주주.*특정증권", "특정증권등.*소유"], "priority": 2},
+      {"subcategory": "기타지분", "keywords": [], "priority": 99, "is_fallback": true}
+    ],
+    "I": [
+      {"subcategory": "조회공시답변", "keywords": ["조회공시"], "priority": 1},
+      {"subcategory": "기타거래소공시", "keywords": [], "priority": 99, "is_fallback": true}
+    ],
+    "E": [
+      {"subcategory": "실적예고", "keywords": ["실적예고", "영업실적", "매출액", "영업이익"], "priority": 1},
+      {"subcategory": "경영계획", "keywords": ["경영계획", "투자계획", "사업계획"], "priority": 2},
+      {"subcategory": "자율공시", "keywords": ["자율공시"], "priority": 3},
+      {"subcategory": "기타공시", "keywords": [], "priority": 99, "is_fallback": true}
+    ],
+    "A": [
+      {"subcategory": "사업보고서", "keywords": ["사업보고서"], "priority": 1},
+      {"subcategory": "반기보고서", "keywords": ["반기보고서"], "priority": 2},
+      {"subcategory": "분기보고서", "keywords": ["분기보고서"], "priority": 3},
+      {"subcategory": "기타정기", "keywords": [], "priority": 99, "is_fallback": true}
+    ]
+  }
+}
