@@ -50,7 +50,7 @@ with st.sidebar:
 
     st.divider()
 
-    if st.button("캐시 초기화", width="stretch"):
+    if st.button("캐시 초기화", use_container_width=True):
         st.cache_data.clear()
         st.toast("캐시가 초기화되었습니다.")
 
