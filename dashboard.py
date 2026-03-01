@@ -216,21 +216,38 @@ def _render_pro_card(item: dict, detail: dict | None) -> str:
     if pct > 0:
         arrow = "&#x25B2;"
         border_color = COLOR_UP
+        badge_text = "&#x25B2; 양전"
+        badge_bg = "rgba(204,0,0,0.08)"
+        badge_color = COLOR_UP
+        value_color = COLOR_UP
     elif pct < 0:
         arrow = "&#x25BC;"
         border_color = COLOR_DOWN
+        badge_text = "&#x25BC; 음전"
+        badge_bg = "rgba(0,102,204,0.08)"
+        badge_color = COLOR_DOWN
+        value_color = COLOR_DOWN
     else:
         arrow = ""
         border_color = "#D1D5DB"
+        badge_text = "보합"
+        badge_bg = "rgba(136,136,136,0.08)"
+        badge_color = COLOR_FLAT
+        value_color = "#111827"
 
     spark_color = COLOR_UP if pct >= 0 else COLOR_DOWN
 
-    # Header section
+    # Header: name + badge row, colored value, change
     header_html = (
         f'<div class="pro-index__header">'
         f'<div class="pro-index__info">'
-        f'<div class="pro-index__name">{name}</div>'
-        f'<div class="pro-index__value">{_fmt_value(name, val)}</div>'
+        f'<div class="pro-index__name-row">'
+        f'<span class="pro-index__name">{name}</span>'
+        f'<span class="pro-index__badge" style="background:{badge_bg};color:{badge_color};">'
+        f'{badge_text}</span>'
+        f'</div>'
+        f'<div class="pro-index__value" style="color:{value_color};">'
+        f'{_fmt_value(name, val)}</div>'
         f'<div class="pro-index__change {cls}">'
         f'{arrow} {_fmt_change(name, change, pct)}'
         f'</div>'
@@ -246,65 +263,47 @@ def _render_pro_card(item: dict, detail: dict | None) -> str:
     elif detail and detail.get("sparkline"):
         sparkline_html = _svg_sparkline(detail["sparkline"], spark_color)
 
-    # Stats grid
-    def _stat(label: str, value: str) -> str:
+    # Range bars (당일 + 52주)
+    fill_color = COLOR_UP if pct >= 0 else COLOR_DOWN
+    ranges_html = ""
+
+    def _range_bar(label: str, low: float, high: float, current: float) -> str:
+        spread = high - low
+        if spread <= 0:
+            pos = 50.0
+        else:
+            pos = max(0, min(100, (current - low) / spread * 100))
         return (
-            f'<div class="pro-index__stat">'
-            f'<div class="pro-index__stat-label">{label}</div>'
-            f'<div class="pro-index__stat-value">{value}</div>'
+            f'<div class="pro-index__range-row">'
+            f'<div class="pro-index__range-meta">'
+            f'<span class="pro-index__range-label">{label}</span>'
+            f'<div class="pro-index__range-labels">'
+            f'<span>{low:,.2f}</span>'
+            f'<span>{high:,.2f}</span>'
+            f'</div>'
+            f'</div>'
+            f'<div class="pro-index__range-track">'
+            f'<div class="pro-index__range-fill" style="width:{pos:.1f}%;background:{fill_color};"></div>'
+            f'<div class="pro-index__range-dot" style="left:{pos:.1f}%;background:{fill_color};"></div>'
+            f'</div>'
             f'</div>'
         )
 
     if detail:
-        open_v = f"{detail['open']:,.2f}"
-        high_v = f"{detail['high']:,.2f}"
-        low_v = f"{detail['low']:,.2f}"
-        vol = detail["volume"]
-        if vol >= 1_0000_0000:
-            vol_str = f"{vol / 1_0000_0000:.1f}억"
-        elif vol >= 1_0000:
-            vol_str = f"{vol / 1_0000:.0f}만"
-        else:
-            vol_str = f"{vol:,}"
-    else:
-        open_v = high_v = low_v = vol_str = "-"
+        day_bar = _range_bar("당일", detail["low"], detail["high"], val)
+        w52_high = detail.get("week52_high")
+        w52_low = detail.get("week52_low")
+        w52_bar = ""
+        if w52_high is not None and w52_low is not None:
+            w52_bar = _range_bar("52주", w52_low, w52_high, val)
+        ranges_html = f'<div class="pro-index__ranges">{day_bar}{w52_bar}</div>'
 
-    prev_str = f"{prev_close:,.2f}" if prev_close is not None else "-"
-
-    stats_html = (
-        f'<div class="pro-index__stats">'
-        + _stat("시가", open_v)
-        + _stat("고가", high_v)
-        + _stat("저가", low_v)
-        + _stat("거래량", vol_str)
-        + _stat("전일종가", prev_str)
-        + '</div>'
-    )
-
-    # Daily range bar (당일 저가~고가)
-    range_html = ""
-    if detail:
-        day_high = detail["high"]
-        day_low = detail["low"]
-        spread = day_high - day_low
-
-        if spread <= 0:
-            pct_pos = 50.0
-        else:
-            pct_pos = max(0, min(100, (val - day_low) / spread * 100))
-
-        fill_color = COLOR_UP if pct >= 0 else COLOR_DOWN
-
-        range_html = (
-            f'<div class="pro-index__range">'
-            f'<div class="pro-index__range-labels">'
-            f'<span>저가 {day_low:,.2f}</span>'
-            f'<span>고가 {day_high:,.2f}</span>'
-            f'</div>'
-            f'<div class="pro-index__range-track">'
-            f'<div class="pro-index__range-fill" style="width:{pct_pos:.1f}%;background:{fill_color};"></div>'
-            f'<div class="pro-index__range-dot" style="left:{pct_pos:.1f}%;background:{fill_color};"></div>'
-            f'</div>'
+    # Previous close
+    prev_html = ""
+    if prev_close is not None:
+        prev_html = (
+            f'<div class="pro-index__prev">'
+            f'전일 {prev_close:,.2f}'
             f'</div>'
         )
 
@@ -312,8 +311,8 @@ def _render_pro_card(item: dict, detail: dict | None) -> str:
         f'<div class="pro-index" style="border-top-color:{border_color};">'
         + header_html
         + sparkline_html
-        + stats_html
-        + range_html
+        + ranges_html
+        + prev_html
         + '</div>'
     )
 
