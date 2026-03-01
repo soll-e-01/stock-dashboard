@@ -143,11 +143,16 @@ def _krx_client_and_config():
     fallback_path = _PROJECT_DIR / "config.krx.example.json"
     if config_path.exists():
         cfg = load_json(config_path)
+        print("[KRX] config.krx.json 사용")
     elif fallback_path.exists():
         cfg = load_json(fallback_path)
+        print("[KRX] config.krx.example.json 사용 (폴백)")
     else:
         raise FileNotFoundError("KRX config not found")
     cfg = _apply_secrets(cfg)
+    login_cfg = cfg.get("krx", {}).get("login", {})
+    has_creds = bool(login_cfg.get("mbrId")) and bool(login_cfg.get("pw"))
+    print(f"[KRX] 로그인 자격증명: {'있음' if has_creds else '없음'}")
     client = build_client(cfg)
     init_url = cfg["krx"].get(
         "login_page_url",
@@ -155,9 +160,15 @@ def _krx_client_and_config():
     )
     try:
         client.session.get(init_url, timeout=client.timeout_sec)
-    except Exception:
-        pass
-    client.login()
+        print("[KRX] 세션 초기화 성공")
+    except Exception as e:
+        print(f"[KRX] 세션 초기화 실패: {e}")
+    try:
+        client.login()
+        print("[KRX] 로그인 성공")
+    except Exception as e:
+        print(f"[KRX] 로그인 실패: {e}")
+        raise
     return client, cfg
 
 
