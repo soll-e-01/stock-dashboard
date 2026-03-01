@@ -24,8 +24,10 @@ from dashboard_data import (
     add_watchlist_stock,
     remove_watchlist_stock,
     lookup_corp_code,
+    search_corp_by_name,
     load_naver_valuations,
     load_segment_data,
+    load_index_history,
 )
 from dashboard_style import (
     inject_css, section_header, title_date_text, fmt_eok, fmt_pct, fmt_ratio,
@@ -62,26 +64,53 @@ with st.sidebar:
     st.markdown("---")
     section_header("관심종목 관리")
 
-    # Add stock
+    # Add stock (code or name search)
     with st.expander("종목 추가", expanded=False):
-        add_code = st.text_input("종목코드 (6자리)", placeholder="005930", key="add_stock_code")
-        if st.button("조회 및 추가", key="btn_add"):
-            if add_code and len(add_code.strip()) == 6:
+        search_query = st.text_input(
+            "종목코드 또는 종목명", placeholder="005930 또는 삼성전자",
+            key="add_stock_input",
+        )
+        if st.button("조회", key="btn_search"):
+            query = search_query.strip()
+            if not query:
+                st.warning("검색어를 입력해주세요.")
+            elif len(query) == 6 and query.isdigit():
                 with st.spinner("DART에서 종목 정보 조회 중..."):
-                    result = lookup_corp_code(add_code.strip())
+                    result = lookup_corp_code(query)
                 if result:
-                    success = add_watchlist_stock(
-                        result["stock_code"], result["corp_code"], result["name"],
-                    )
-                    if success:
-                        st.success(f"{result['name']} 추가 완료")
-                        st.rerun()
-                    else:
-                        st.warning("이미 등록된 종목입니다.")
+                    st.session_state["search_results"] = [result]
                 else:
+                    st.session_state["search_results"] = []
                     st.error("종목을 찾을 수 없습니다.")
+            elif len(query) >= 2:
+                with st.spinner("종목명 검색 중..."):
+                    results = search_corp_by_name(query)
+                if results:
+                    st.session_state["search_results"] = results
+                else:
+                    st.session_state["search_results"] = []
+                    st.warning("검색 결과가 없습니다.")
             else:
-                st.warning("6자리 종목코드를 입력해주세요.")
+                st.warning("2글자 이상 입력해주세요.")
+
+        if st.session_state.get("search_results"):
+            results = st.session_state["search_results"]
+            options = {f"{r['name']} ({r['stock_code']})": r for r in results}
+            selected_key = st.selectbox(
+                f"검색 결과 ({len(results)}건)", list(options.keys()),
+                key="search_result_select",
+            )
+            if st.button("추가", key="btn_add_selected"):
+                r = options[selected_key]
+                success = add_watchlist_stock(
+                    r["stock_code"], r["corp_code"], r["name"],
+                )
+                if success:
+                    st.success(f"{r['name']} 추가 완료")
+                    st.session_state.pop("search_results", None)
+                    st.rerun()
+                else:
+                    st.warning("이미 등록된 종목입니다.")
 
     # Remove stock
     watchlist = get_watchlist()
@@ -218,12 +247,26 @@ st.markdown("---")
 # ── Price Chart (Candlestick) ──
 section_header("주가 차트")
 
-chart_period = st.radio(
-    "기간", ["1개월", "3개월", "6개월", "1년"],
-    index=3, horizontal=True, key="chart_period",
-)
+_chart_col1, _chart_col2 = st.columns([1, 2])
+with _chart_col1:
+    chart_period = st.radio(
+        "기간", ["1개월", "3개월", "6개월", "1년"],
+        index=3, horizontal=True, key="chart_period",
+    )
 period_map = {"1개월": "1mo", "3개월": "3mo", "6개월": "6mo", "1년": "1y"}
 yf_period = period_map[chart_period]
+
+# Comparison stock selector
+compare_names: list[str] = []
+other_stocks = [e for e in watchlist if e["stock_code"] != stock_code]
+if other_stocks:
+    with _chart_col2:
+        compare_names = st.multiselect(
+            "비교 종목",
+            [e["name"] for e in other_stocks],
+            key="compare_stocks",
+            max_selections=3,
+        )
 
 # Determine market suffix
 market_suffix = "KS"  # default KOSPI
@@ -290,7 +333,7 @@ if history:
     ))
 
     fig.update_layout(
-        height=500,
+        height=440,
         margin=dict(l=0, r=0, t=40, b=0),
         template=CHART_TEMPLATE,
         title=dict(
@@ -327,7 +370,10 @@ if history:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Quick stats
+    # Load KOSPI history (used by stats + comparison chart)
+    kospi_hist = load_index_history(yf_period)
+
+    # Quick stats (compact HTML with KOSPI benchmark)
     if len(hdf) >= 2:
         latest = hdf.iloc[-1]
         first = hdf.iloc[0]
@@ -337,11 +383,155 @@ if history:
         low_min = hdf["low"].min()
         avg_vol = hdf["volume"].mean()
 
-        sc1, sc2, sc3, sc4 = st.columns(4)
-        sc1.metric("기간 수익률", f"{period_pct:+.1f}%", delta=f"{period_change:+,.0f}원", delta_color="normal")
-        sc2.metric("최고가", f"{high_max:,.0f}원")
-        sc3.metric("최저가", f"{low_min:,.0f}원")
-        sc4.metric("평균 거래량", f"{avg_vol:,.0f}")
+        # KOSPI benchmark
+        kospi_pct = None
+        excess_pct = None
+        if kospi_hist and len(kospi_hist) >= 2:
+            k_first = kospi_hist[0]["close"]
+            k_last = kospi_hist[-1]["close"]
+            kospi_pct = (k_last - k_first) / k_first * 100
+            excess_pct = period_pct - kospi_pct
+
+        # Color helpers
+        def _pct_color(v):
+            if v > 0:
+                return COLOR_UP
+            elif v < 0:
+                return COLOR_DOWN
+            return COLOR_FLAT
+
+        pct_clr = _pct_color(period_pct)
+        kospi_sub = ""
+        if kospi_pct is not None:
+            k_clr = _pct_color(kospi_pct)
+            ex_clr = _pct_color(excess_pct)
+            kospi_sub = (
+                f'<div style="font-size:0.68rem;margin-top:3px;">'
+                f'<span style="color:#9CA3AF;">KOSPI </span>'
+                f'<span style="color:{k_clr};font-weight:600;">{kospi_pct:+.1f}%</span>'
+                f'</div>'
+                f'<div style="font-size:0.68rem;margin-top:1px;">'
+                f'<span style="color:#9CA3AF;">초과 </span>'
+                f'<span style="color:{ex_clr};font-weight:700;">{excess_pct:+.1f}%p</span>'
+                f'</div>'
+            )
+
+        # Format avg volume
+        if avg_vol >= 1_000_000:
+            vol_str = f"{avg_vol / 1_000_000:.1f}M"
+        elif avg_vol >= 1_000:
+            vol_str = f"{avg_vol / 1_000:.0f}K"
+        else:
+            vol_str = f"{avg_vol:,.0f}"
+
+        def _stat_cell(label, value, extra="", flex="1"):
+            return (
+                f'<div style="flex:{flex};min-width:0;padding:8px 10px;'
+                f'border-right:1px solid #F0F0F0;text-align:center;">'
+                f'<div style="font-size:0.65rem;color:#9CA3AF;font-weight:500;'
+                f'text-transform:uppercase;letter-spacing:0.03em;margin-bottom:3px;">{label}</div>'
+                f'<div style="font-size:0.85rem;font-weight:700;color:#111827;">{value}</div>'
+                f'{extra}'
+                f'</div>'
+            )
+
+        stats_html = (
+            '<div style="background:#FFF;border:1px solid #E5E7EB;border-radius:8px;'
+            'overflow:hidden;display:flex;margin-top:4px;">'
+            + _stat_cell(
+                "기간 수익률",
+                f'<span style="color:{pct_clr};">{period_pct:+.1f}%</span>',
+                kospi_sub,
+                flex="1.3",
+            )
+            + _stat_cell("최고가", f"{high_max:,.0f}원")
+            + _stat_cell("최저가", f"{low_min:,.0f}원")
+            + _stat_cell("평균 거래량", vol_str)
+            + '</div>'
+        )
+        st.markdown(stats_html, unsafe_allow_html=True)
+
+    # ── Performance Comparison Chart ──
+    _compare_entries = [e for e in watchlist if e["name"] in compare_names] if compare_names else []
+    _show_compare = bool(_compare_entries) or (kospi_hist and len(kospi_hist) >= 2)
+
+    if _show_compare and len(hdf) >= 2:
+        with st.expander("수익률 비교", expanded=bool(_compare_entries)):
+            _comp_colors = ["#E74C3C", "#27AE60", "#F39C12"]
+            fig_comp = go.Figure()
+
+            # Main stock normalized
+            main_first = hdf.iloc[0]["close"]
+            main_norm = [(r["close"] / main_first - 1) * 100 for _, r in hdf.iterrows()]
+            fig_comp.add_trace(go.Scatter(
+                x=hdf["date"], y=main_norm,
+                mode="lines",
+                line=dict(color=COLOR_PRIMARY, width=2),
+                name=corp_name,
+            ))
+
+            # KOSPI normalized
+            if kospi_hist and len(kospi_hist) >= 2:
+                k_first_val = kospi_hist[0]["close"]
+                k_dates = [h["date"] for h in kospi_hist]
+                k_norm = [(h["close"] / k_first_val - 1) * 100 for h in kospi_hist]
+                fig_comp.add_trace(go.Scatter(
+                    x=k_dates, y=k_norm,
+                    mode="lines",
+                    line=dict(color="#9CA3AF", width=1.5, dash="dot"),
+                    name="KOSPI",
+                ))
+
+            # Comparison stocks
+            for ci, comp_entry in enumerate(_compare_entries):
+                comp_code = comp_entry["stock_code"]
+                comp_suffix = "KS"
+                comp_pr = price_by_code.get(comp_code)
+                if comp_pr:
+                    comp_mkt = str(comp_pr.get("market", ""))
+                    if "KOSDAQ" in comp_mkt or "코스닥" in comp_mkt:
+                        comp_suffix = "KQ"
+                comp_hist = load_price_history(comp_code, comp_suffix, yf_period)
+                if comp_hist and len(comp_hist) >= 2:
+                    c_first = comp_hist[0]["close"]
+                    c_dates = [h["date"] for h in comp_hist]
+                    c_norm = [(h["close"] / c_first - 1) * 100 for h in comp_hist]
+                    fig_comp.add_trace(go.Scatter(
+                        x=c_dates, y=c_norm,
+                        mode="lines",
+                        line=dict(color=_comp_colors[ci % len(_comp_colors)], width=1.5),
+                        name=comp_entry["name"],
+                    ))
+
+            fig_comp.update_layout(
+                height=250,
+                margin=dict(l=0, r=0, t=10, b=0),
+                template=CHART_TEMPLATE,
+                yaxis=dict(
+                    title=dict(text="%", font=dict(size=10, color="#9CA3AF")),
+                    showgrid=True, gridcolor="#F3F4F6", gridwidth=0.5,
+                    tickfont=dict(size=9, color="#9CA3AF"),
+                    zeroline=True, zerolinecolor="#E5E7EB", zerolinewidth=1,
+                    ticksuffix="%",
+                ),
+                xaxis=dict(
+                    showgrid=False,
+                    tickfont=dict(size=9, color="#9CA3AF"),
+                    showline=True, linewidth=1, linecolor="#E5E7EB",
+                ),
+                xaxis_rangebreaks=[dict(bounds=["sat", "mon"])],
+                legend=dict(
+                    orientation="h", yanchor="bottom", y=-0.25,
+                    xanchor="center", x=0.5,
+                    font=dict(size=10, color="#6B7280"),
+                    bgcolor="rgba(0,0,0,0)",
+                ),
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                hovermode="x unified",
+            )
+            st.plotly_chart(fig_comp, use_container_width=True)
+            st.caption("기간 시작일 대비 수익률 비교 (기준: 0%)")
 else:
     st.info("주가 차트 데이터를 불러올 수 없습니다. (Yahoo Finance 연결 확인)")
 

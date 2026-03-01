@@ -694,6 +694,70 @@ def lookup_corp_code(stock_code: str) -> dict[str, str] | None:
         return None
 
 
+@st.cache_data(ttl=3600, show_spinner="종목명 검색 중...")
+def search_corp_by_name(query: str) -> list[dict[str, str]]:
+    """Search DART corpCode.xml by company name (substring match).
+
+    Returns up to 20 matches with non-empty stock_code (listed companies only).
+    """
+    import io
+    import zipfile
+    from xml.etree import ElementTree as ET
+
+    cfg = load_dart_config()
+    dart_cfg = cfg.get("dart", {})
+    api_key = dart_cfg.get("api_key", "")
+    if not api_key:
+        return []
+
+    import requests
+    try:
+        resp = requests.get(
+            "https://opendart.fss.or.kr/api/corpCode.xml",
+            params={"crtfc_key": api_key},
+            timeout=60,
+        )
+        resp.raise_for_status()
+        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+            xml_name = zf.namelist()[0]
+            root = ET.fromstring(zf.read(xml_name))
+
+        query_lower = query.strip().lower()
+        results: list[dict[str, str]] = []
+        for item in root.iter("list"):
+            sc = (item.findtext("stock_code") or "").strip()
+            if not sc or sc == "000000":
+                continue
+            cn = (item.findtext("corp_name") or "").strip()
+            if query_lower in cn.lower():
+                cc = (item.findtext("corp_code") or "").strip()
+                results.append({"stock_code": sc, "corp_code": cc, "name": cn})
+                if len(results) >= 20:
+                    break
+        return results
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def load_index_history(period: str = "1y") -> list[dict[str, Any]]:
+    """Fetch KOSPI index daily history from Yahoo Finance for benchmark comparison."""
+    import yfinance as yf
+
+    try:
+        data = yf.download("^KS11", period=period, progress=False, auto_adjust=True)
+        if data.empty:
+            return []
+        if hasattr(data.columns, "levels"):
+            data.columns = data.columns.get_level_values(0)
+        return [
+            {"date": dt.strftime("%Y-%m-%d"), "close": float(row["Close"])}
+            for dt, row in data.iterrows()
+        ]
+    except Exception:
+        return []
+
+
 # ---------------------------------------------------------------------------
 # Naver Finance: Forward PER/EPS (Consensus)
 # ---------------------------------------------------------------------------
