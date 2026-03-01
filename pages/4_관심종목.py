@@ -562,7 +562,7 @@ with st.expander("사업부문 매출 추이 (2023년~)", expanded=False):
             margin=dict(l=0, r=0, t=10, b=0),
             template=CHART_TEMPLATE,
             yaxis=dict(
-                title="억원", titlefont=dict(size=10, color="#9CA3AF"),
+                title=dict(text="억원", font=dict(size=10, color="#9CA3AF")),
                 showgrid=True, gridcolor="#F3F4F6", gridwidth=0.5,
                 tickfont=dict(size=9, color="#9CA3AF"),
             ),
@@ -644,7 +644,7 @@ with st.expander("사업부문 매출 추이 (2023년~)", expanded=False):
                 margin=dict(l=0, r=0, t=10, b=0),
                 template=CHART_TEMPLATE,
                 yaxis=dict(
-                    title="%", titlefont=dict(size=10, color="#9CA3AF"),
+                    title=dict(text="%", font=dict(size=10, color="#9CA3AF")),
                     showgrid=True, gridcolor="#F3F4F6", gridwidth=0.5,
                     tickfont=dict(size=9, color="#9CA3AF"),
                     range=[0, 105],
