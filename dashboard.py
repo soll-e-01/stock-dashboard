@@ -187,6 +187,25 @@ def _svg_sparkline(sparkline_data: list[dict], color: str, width: int = 300, hei
     )
 
 
+def _time_labels_html() -> str:
+    """KRX 장중 스파크라인 아래 시간 레이블 (10:00~15:00)."""
+    hours = [10, 11, 12, 13, 14, 15]
+    labels = []
+    for h in hours:
+        pct = (h * 60 - 540) / 390 * 100  # 540=09:00, 390min=09:00~15:30
+        labels.append(
+            f'<span style="position:absolute;left:{pct:.1f}%;'
+            f'transform:translateX(-50%);'
+            f'font-size:0.5rem;color:#C8C8C8;font-weight:400;">'
+            f'{h}:00</span>'
+        )
+    return (
+        '<div style="position:relative;height:12px;margin:0;padding:0 16px;">'
+        + "".join(labels)
+        + '</div>'
+    )
+
+
 def _render_pro_card(item: dict, detail: dict | None) -> str:
     """Render a complete professional index card as a single HTML block."""
     name = item["name"]
@@ -221,9 +240,12 @@ def _render_pro_card(item: dict, detail: dict | None) -> str:
         f'</div>'
     )
 
-    # SVG sparkline
+    # SVG sparkline (prefer intraday, fallback to monthly)
     sparkline_html = ""
-    if detail and detail.get("sparkline"):
+    intraday = detail.get("sparkline_intraday", []) if detail else []
+    if intraday and len(intraday) >= 2:
+        sparkline_html = _svg_sparkline(intraday, spark_color) + _time_labels_html()
+    elif detail and detail.get("sparkline"):
         sparkline_html = _svg_sparkline(detail["sparkline"], spark_color)
 
     # Stats grid

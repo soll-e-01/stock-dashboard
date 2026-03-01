@@ -1898,6 +1898,20 @@ def load_index_detail() -> dict[str, dict[str, Any]]:
                 if row.Close == row.Close  # skip NaN
             ]
 
+            # Intraday 5-min data for sparkline with time labels
+            intraday_sparkline: list[dict[str, Any]] = []
+            try:
+                hist_intraday = ticker.history(period="1d", interval="5m")
+                if not hist_intraday.empty:
+                    for row in hist_intraday.itertuples():
+                        if row.Close == row.Close:  # skip NaN
+                            intraday_sparkline.append({
+                                "time": row.Index.strftime("%H:%M"),
+                                "close": round(float(row.Close), 2),
+                            })
+            except Exception:
+                pass
+
             # 1-year for 52-week range
             hist_1y = ticker.history(period="1y")
             if hist_1y.empty:
@@ -1915,6 +1929,7 @@ def load_index_detail() -> dict[str, dict[str, Any]]:
                 "week52_high": round(week52_high, 2),
                 "week52_low": round(week52_low, 2),
                 "sparkline": sparkline,
+                "sparkline_intraday": intraday_sparkline,
             }
         except Exception:
             return name, None
