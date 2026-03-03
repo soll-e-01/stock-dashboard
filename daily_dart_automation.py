@@ -271,16 +271,33 @@ class DartClient:
         end_de: str,
         watchlist: list[dict[str, str]],
     ) -> list[dict[str, str]]:
+        def _normalize_corp_code(v: object) -> str:
+            s = str(v or "").strip()
+            if s.startswith("'"):
+                s = s[1:]
+            # Remove whitespace / hidden chars / non-digits from sheet exports.
+            s = re.sub(r"\D", "", s)
+            if not s:
+                return ""
+            if len(s) > 8:
+                return ""
+            return s.zfill(8)
+
         all_rows: list[dict[str, str]] = []
         for entry in watchlist:
-            corp_code = entry.get("corp_code", "")
+            raw_corp_code = entry.get("corp_code", "")
+            corp_code = _normalize_corp_code(raw_corp_code)
             name = entry.get("name", "")
             if not corp_code:
-                print(f"[경고] {name}: corp_code가 없습니다. 건너뜁니다.")
+                print(f"[경고] {name}: corp_code 형식 오류로 건너뜁니다. raw={raw_corp_code!r}")
                 continue
-            rows = self.fetch_disclosures(
-                bgn_de=bgn_de, end_de=end_de, corp_code=corp_code,
-            )
+            try:
+                rows = self.fetch_disclosures(
+                    bgn_de=bgn_de, end_de=end_de, corp_code=corp_code,
+                )
+            except Exception as e:
+                print(f"[경고] {name}({corp_code}) 공시 조회 실패: {e}")
+                continue
             all_rows.extend(rows)
             time.sleep(self.request_delay)
         return all_rows
