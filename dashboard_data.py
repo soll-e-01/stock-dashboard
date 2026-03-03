@@ -485,7 +485,7 @@ def get_watchlist() -> list[dict[str, str]]:
             records = ws.get_all_records()
             return [
                 {
-                    "stock_code": str(r.get("stock_code", "")).strip(),
+                    "stock_code": str(r.get("stock_code", "")).strip().zfill(6),
                     "corp_code": str(r.get("corp_code", "")).strip(),
                     "name": str(r.get("name", "")).strip(),
                 }
