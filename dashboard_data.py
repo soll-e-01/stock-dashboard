@@ -392,7 +392,7 @@ def load_disclosures(date_str: str) -> dict[str, Any]:
 
     classification = cfg.get("classification", {})
     pblntf_types = dart_cfg.get("pblntf_types", ["A", "B", "D", "E", "I"])
-    watchlist_cfg = cfg.get("watchlist", [])
+    watchlist_cfg = get_watchlist()
 
     client = DartClient(
         api_key=api_key,
