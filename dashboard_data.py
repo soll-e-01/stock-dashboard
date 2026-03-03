@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shutil
 import sys
 import time
@@ -125,6 +126,39 @@ def _apply_secrets(cfg: dict[str, Any]) -> dict[str, Any]:
         pass
 
     return cfg
+
+
+def _normalize_stock_code(v: object) -> str:
+    s = str(v or "").strip()
+    s = re.sub(r"\D", "", s)
+    if not s:
+        return ""
+    if len(s) > 6:
+        return ""
+    return s.zfill(6)
+
+
+def _normalize_corp_code(v: object) -> str:
+    s = str(v or "").strip()
+    if s.startswith("'"):
+        s = s[1:]
+    s = re.sub(r"\D", "", s)
+    if not s:
+        return ""
+    if len(s) > 8:
+        return ""
+    return s.zfill(8)
+
+
+def _normalize_watchlist_entry(entry: dict[str, Any]) -> dict[str, str] | None:
+    stock_code = _normalize_stock_code(entry.get("stock_code", ""))
+    if not stock_code:
+        return None
+    return {
+        "stock_code": stock_code,
+        "corp_code": _normalize_corp_code(entry.get("corp_code", "")),
+        "name": str(entry.get("name", "")).strip(),
+    }
 
 
 @st.cache_data
@@ -483,19 +517,21 @@ def get_watchlist() -> list[dict[str, str]]:
         try:
             ws = _get_gsheet()
             records = ws.get_all_records()
-            return [
-                {
-                    "stock_code": str(r.get("stock_code", "")).strip().zfill(6),
-                    "corp_code": str(r.get("corp_code", "")).strip(),
-                    "name": str(r.get("name", "")).strip(),
-                }
-                for r in records
-                if r.get("stock_code")
-            ]
+            rows: list[dict[str, str]] = []
+            for r in records:
+                norm = _normalize_watchlist_entry(r)
+                if norm:
+                    rows.append(norm)
+            return rows
         except Exception as e:
             st.warning(f"Google Sheets 읽기 실패, config 폴백: {e}")
     cfg = load_dart_config()
-    return cfg.get("watchlist", [])
+    rows: list[dict[str, str]] = []
+    for r in cfg.get("watchlist", []):
+        norm = _normalize_watchlist_entry(r)
+        if norm:
+            rows.append(norm)
+    return rows
 
 
 def get_financial_years() -> list[int]:
@@ -514,9 +550,17 @@ def load_financial_model_cached(
     fs_div: str,
 ) -> dict[str, Any]:
     """Build financial model and return as serializable dict."""
+    corp_code = _normalize_corp_code(corp_code)
+    stock_code = _normalize_stock_code(stock_code)
+    corp_name = str(corp_name or "").strip()
+    if not corp_code or not stock_code:
+        return {}
+
     cfg = load_dart_config()
     dart_cfg = cfg.get("dart", {})
     api_key = dart_cfg.get("api_key", "")
+    if not api_key:
+        return {}
 
     client = DartFinancialClient(
         api_key=api_key,
@@ -563,6 +607,10 @@ def dict_to_model(d: dict[str, Any]) -> FinancialModel:
 def load_watchlist_disclosures(
     corp_code: str, date_str: str,
 ) -> list[dict[str, str]]:
+    corp_code = _normalize_corp_code(corp_code)
+    if not corp_code:
+        return []
+
     cfg = load_dart_config()
     dart_cfg = cfg.get("dart", {})
     api_key = dart_cfg.get("api_key", "")
@@ -661,10 +709,18 @@ def _config_path() -> Path:
 
 def add_watchlist_stock(stock_code: str, corp_code: str, name: str) -> bool:
     """관심종목 추가. Google Sheets 우선, 없으면 config.dart.json 폴백."""
+    stock_code = _normalize_stock_code(stock_code)
+    corp_code = _normalize_corp_code(corp_code)
+    name = str(name or "").strip()
+    if not stock_code or not corp_code:
+        return False
+
     if _use_gsheets():
         try:
             ws = _get_gsheet()
-            existing_codes = ws.col_values(1)[1:]  # 헤더(1행) 제외
+            existing_codes = {
+                _normalize_stock_code(c) for c in ws.col_values(1)[1:]
+            }  # 헤더(1행) 제외
             if stock_code in existing_codes:
                 return False
             ws.append_row([stock_code, corp_code, name])
@@ -692,6 +748,10 @@ def add_watchlist_stock(stock_code: str, corp_code: str, name: str) -> bool:
 
 def remove_watchlist_stock(stock_code: str) -> bool:
     """관심종목 제거. Google Sheets 우선, 없으면 config.dart.json 폴백."""
+    stock_code = _normalize_stock_code(stock_code)
+    if not stock_code:
+        return False
+
     if _use_gsheets():
         try:
             ws = _get_gsheet()
