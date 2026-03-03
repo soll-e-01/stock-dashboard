@@ -17,6 +17,14 @@ from typing import Any
 
 import streamlit as st
 
+# Google Sheets (optional - Streamlit Cloud 환경에서 관심종목 영구 저장용)
+try:
+    import gspread
+    from google.oauth2.service_account import Credentials as _GCredentials
+    _GSHEETS_AVAILABLE = True
+except ImportError:
+    _GSHEETS_AVAILABLE = False
+
 # Fix curl_cffi SSL cert issue on paths with non-ASCII characters (e.g. Korean)
 if "CURL_CA_BUNDLE" not in os.environ:
     try:
@@ -446,7 +454,46 @@ def load_disclosures(date_str: str) -> dict[str, Any]:
 # Watchlist / Financial Model
 # ---------------------------------------------------------------------------
 
+def _use_gsheets() -> bool:
+    """Google Sheets 사용 가능 여부 확인."""
+    if not _GSHEETS_AVAILABLE:
+        return False
+    try:
+        return "gcp_service_account" in st.secrets and "gsheets" in st.secrets
+    except Exception:
+        return False
+
+
+@st.cache_resource
+def _get_gsheet():
+    """Google Sheets 워크시트 연결 (캐시됨)."""
+    creds = _GCredentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=["https://www.googleapis.com/auth/spreadsheets"],
+    )
+    gc = gspread.authorize(creds)
+    spreadsheet_id = st.secrets["gsheets"]["spreadsheet_id"]
+    sh = gc.open_by_key(spreadsheet_id)
+    return sh.worksheet("watchlist")
+
+
 def get_watchlist() -> list[dict[str, str]]:
+    """관심종목 목록 반환. Google Sheets 우선, 없으면 config.dart.json 폴백."""
+    if _use_gsheets():
+        try:
+            ws = _get_gsheet()
+            records = ws.get_all_records()
+            return [
+                {
+                    "stock_code": str(r.get("stock_code", "")).strip(),
+                    "corp_code": str(r.get("corp_code", "")).strip(),
+                    "name": str(r.get("name", "")).strip(),
+                }
+                for r in records
+                if r.get("stock_code")
+            ]
+        except Exception as e:
+            st.warning(f"Google Sheets 읽기 실패, config 폴백: {e}")
     cfg = load_dart_config()
     return cfg.get("watchlist", [])
 
@@ -605,42 +652,59 @@ def load_price_history(
 
 
 # ---------------------------------------------------------------------------
-# Watchlist Management
+# Watchlist Management (Google Sheets 기반 - Streamlit Cloud 영구 저장)
 # ---------------------------------------------------------------------------
 
 def _config_path() -> Path:
     return _PROJECT_DIR / "config.dart.json"
 
 
-def _save_dart_config(cfg: dict[str, Any]) -> None:
-    path = _config_path()
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(cfg, f, ensure_ascii=False, indent=2)
-    # Clear cached config so changes are picked up
-    load_dart_config.clear()
-
-
 def add_watchlist_stock(stock_code: str, corp_code: str, name: str) -> bool:
-    """Add a stock to the watchlist in config.dart.json. Returns True on success."""
+    """관심종목 추가. Google Sheets 우선, 없으면 config.dart.json 폴백."""
+    if _use_gsheets():
+        try:
+            ws = _get_gsheet()
+            existing_codes = ws.col_values(1)[1:]  # 헤더(1행) 제외
+            if stock_code in existing_codes:
+                return False
+            ws.append_row([stock_code, corp_code, name])
+            _get_gsheet.clear()
+            load_watchlist_krx.clear()
+            return True
+        except Exception as e:
+            st.error(f"Google Sheets 종목 추가 실패: {e}")
+            return False
     path = _config_path()
     if not path.exists():
         return False
     cfg = _load_json(path)
     watchlist = cfg.get("watchlist", [])
-    # Check for duplicate
-    for w in watchlist:
-        if w.get("stock_code") == stock_code:
-            return False
+    if any(w.get("stock_code") == stock_code for w in watchlist):
+        return False
     watchlist.append({"stock_code": stock_code, "corp_code": corp_code, "name": name})
     cfg["watchlist"] = watchlist
-    _save_dart_config(cfg)
-    # Clear watchlist-dependent caches so new stock data is fetched
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+    load_dart_config.clear()
     load_watchlist_krx.clear()
     return True
 
 
 def remove_watchlist_stock(stock_code: str) -> bool:
-    """Remove a stock from the watchlist. Returns True on success."""
+    """관심종목 제거. Google Sheets 우선, 없으면 config.dart.json 폴백."""
+    if _use_gsheets():
+        try:
+            ws = _get_gsheet()
+            cell = ws.find(stock_code, in_column=1)
+            if not cell:
+                return False
+            ws.delete_rows(cell.row)
+            _get_gsheet.clear()
+            load_watchlist_krx.clear()
+            return True
+        except Exception as e:
+            st.error(f"Google Sheets 종목 제거 실패: {e}")
+            return False
     path = _config_path()
     if not path.exists():
         return False
@@ -650,8 +714,9 @@ def remove_watchlist_stock(stock_code: str) -> bool:
     if len(new_watchlist) == len(watchlist):
         return False
     cfg["watchlist"] = new_watchlist
-    _save_dart_config(cfg)
-    # Clear watchlist-dependent caches
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+    load_dart_config.clear()
     load_watchlist_krx.clear()
     return True
 
