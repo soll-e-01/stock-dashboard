@@ -1061,8 +1061,9 @@ def main() -> int:
             print(f"  → 실패: {e}")
         time.sleep(1)
 
-    # 신고가 API 실패 시 시세 데이터 기반 당일 강세 종목으로 폴백
-    if not high_rows_by_sheet:
+    # 신고가 API가 비어있거나 실패하면 시세 데이터 기반 당일 강세 종목으로 폴백
+    has_high_rows = any(bool(rows) for rows in high_rows_by_sheet.values())
+    if not has_high_rows:
         print("[KRX] 신고가 데이터 없음 → 당일 강세 종목으로 대체")
         candidates: list[HighRow] = []
         for p in price_rows:

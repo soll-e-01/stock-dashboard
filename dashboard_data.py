@@ -385,8 +385,9 @@ def load_high_data(date_str: str) -> dict[str, list[dict[str, Any]]]:
             result[sheet_name] = []
         time.sleep(0.5)
 
-    # 신고가 API 실패 시 시세 데이터 기반 폴백
-    if not result:
+    # 신고가 API가 비어있거나 실패하면 시세 데이터 기반 폴백
+    has_high_rows = any(bool(rows) for rows in result.values())
+    if not has_high_rows:
         candidates = []
         for p in price_data:
             if p["pct"] <= 0 or p["high"] <= 0 or p["close"] <= 0:
